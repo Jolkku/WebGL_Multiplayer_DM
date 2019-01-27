@@ -95,7 +95,7 @@ raycaster = new THREE.Raycaster();
 direction = new THREE.Vector3();
 var RESOURCES_LOADED = false;
 
-socket = io.connect('https://still-bayou-18405.herokuapp.com');
+socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
 //socket = io.connect('localhost:3000');
 socket.on('createPlayer', function(data){checkResourcesLoaded(data)});
 socket.on('yourData', function(data){socketId = data.socketId; uuid = data.uuid; name = data.name});
