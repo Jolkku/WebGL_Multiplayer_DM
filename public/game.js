@@ -1,0 +1,609 @@
+var element, camera, scene, matrix4, renderer, light, ambient, cube, socket, socketId, uuid, name, controls, point, position, angle, direction, raycaster, quaternion, arrow, playerId, socket, intersected = false, showGun = true, hits = 0, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lines = [];
+var blocker = document.getElementById('blocker');
+var instructions = document.getElementById('instructions');
+var crosshair = document.getElementById('crosshair');
+var values = document.getElementsByClassName('values');
+
+var models = {
+  map: {
+    obj: "map.obj",
+    mtl: "map.mtl",
+    mesh: null
+  },
+  player: {
+    obj: "player.obj",
+    mtl: "player.mtl",
+    mesh: null
+  },
+  laser: {
+    obj: "Laser_Rifle.obj",
+    mtl: "Laser_Rifle.mtl",
+    mesh: null
+  },
+}
+
+var havePointerLock = 'pointerLockElement' in document || 'mozPointerLockElement' in document || 'webkitPointerLockElement' in document;
+
+if ( havePointerLock ) {
+	element = document.body;
+	var pointerlockchange = function ( event ) {
+		if ( document.pointerLockElement === element || document.mozPointerLockElement === element || document.webkitPointerLockElement === element) {
+			if (RESOURCES_LOADED) {
+				controlsEnabled = true;
+				controls.enabled = true;
+				blocker.style.display = 'none';
+        crosshair.style.visibility = 'visible';
+        //values.style.visibility = 'visible';
+        document.addEventListener("click", shoot);
+			}
+		} else {
+			controls.enabled = false;
+			blocker.style.display = '-webkit-box';
+			blocker.style.display = '-moz-box';
+			blocker.style.display = 'box';
+			instructions.style.display = '';
+		}
+	};
+	var pointerlockerror = function ( event ) {
+		instructions.style.display = '';
+	};
+	document.addEventListener( 'pointerlockchange', pointerlockchange, false );
+	document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
+	document.addEventListener( 'webkitpointerlockchange', pointerlockchange, false );
+	document.addEventListener( 'pointerlockerror', pointerlockerror, false );
+	document.addEventListener( 'mozpointerlockerror', pointerlockerror, false );
+	document.addEventListener( 'webkitpointerlockerror', pointerlockerror, false );
+	instructions.addEventListener( 'click', function ( event ) {
+		if (RESOURCES_LOADED) {
+		instructions.style.display = 'none';
+		// Ask the browser to lock the pointer
+		element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
+		if ( /Firefox/i.test( navigator.userAgent ) ) {
+			var fullscreenchange = function ( event ) {
+				if ( document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element ) {
+					document.removeEventListener( 'fullscreenchange', fullscreenchange );
+					document.removeEventListener( 'mozfullscreenchange', fullscreenchange );
+					element.requestPointerLock();
+				}
+			};
+			document.addEventListener( 'fullscreenchange', fullscreenchange, false );
+			document.addEventListener( 'mozfullscreenchange', fullscreenchange, false );
+			element.requestFullscreen = element.requestFullscreen || element.mozRequestFullscreen || element.mozRequestFullScreen || element.webkitRequestFullscreen;
+			element.requestFullscreen();
+		} else {
+			element.requestPointerLock();
+		}
+                }
+	}, false );
+} else {
+	instructions.innerHTML = 'Your browser doesn\'t seem to support Pointer Lock API';
+}
+
+var controlsEnabled = false;
+var moveForward = false;
+var moveBackward = false;
+var moveLeft = false;
+var moveRight = false;
+var moveUp = false;
+var moveDown = false;
+var prevTime = performance.now();
+var velocity = new THREE.Vector3();
+angle = new THREE.Euler();
+//matrix4 = new THREE.Matrix4();
+quaternion = new THREE.Quaternion();
+raycaster = new THREE.Raycaster();
+direction = new THREE.Vector3();
+var RESOURCES_LOADED = false;
+
+socket = io.connect('https://still-bayou-18405.herokuapp.com');
+//socket = io.connect('localhost:3000');
+socket.on('createPlayer', function(data){checkResourcesLoaded(data)});
+socket.on('yourData', function(data){socketId = data.socketId; uuid = data.uuid; name = data.name});
+socket.on('removePlayer', function(socketId){removePlayer(socketId)});
+socket.on('sendHost', function(){sendHost()});
+socket.on('updatePlayer', function(data){updateOtherPlayers(data)});
+
+init();
+animate();
+
+function init() {
+	var loadingManager = null;
+
+	camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+  scene = new THREE.Scene();
+	renderer = new THREE.WebGLRenderer();
+	renderer.setSize( window.innerWidth, window.innerHeight);
+	renderer.shadowMap.enabled = true;
+	renderer.shadowMap.type = THREE.BasicShadowMap;
+	renderer.shadowMap.MapSize = new THREE.Vector2(2048, 2048);
+  renderer.setPixelRatio( window.devicePixelRatio );
+
+	loadingManager = new THREE.LoadingManager();
+	loadingManager.onProgress = function(item, loaded, total){
+		//console.log(item, loaded, total);
+	};
+	loadingManager.onLoad = function(){
+		console.log("loaded all resources");
+		RESOURCES_LOADED = true;
+		onResourcesLoaded();
+	};
+
+	for( var _key in models ){
+		(function(key){
+			var mtlLoader = new THREE.MTLLoader(loadingManager);
+			mtlLoader.load(models[key].mtl, function(materials){
+				materials.preload();
+
+				var objLoader = new THREE.OBJLoader(loadingManager);
+
+				objLoader.setMaterials(materials);
+				objLoader.load(models[key].obj, function(mesh){
+
+					mesh.traverse(function(node){
+						if( node instanceof THREE.Mesh ){
+							if (node !== undefined && key == "gun") {
+								node.geometry.translate(4, -4.8, -10);
+							}
+							if (node !== undefined && key == "laser") {
+								node.geometry.rotateX(-Math.PI/2);
+								node.geometry.rotateY(Math.PI/2);
+								node.geometry.translate(10, -19, -17);
+							}
+							node.castShadow = false;
+							node.receiveShadow = false;
+						}
+					});
+					models[key].mesh = mesh;
+
+				});
+			});
+
+		})(_key);
+	}
+
+	controls = new THREE.PointerLockControls( camera );
+	controls.getObject().position.y = 4.8;
+  spawnLocation();
+  console.log(controls.getObject().position);
+	document.body.appendChild( renderer.domElement);
+	scene.add( controls.getObject() );
+	var keyDown = function ( event ) {
+		switch ( event.keyCode ) {
+			case 38: // up
+				moveUp = true;
+				break;
+			case 87: // w
+				moveForward = true;
+				break;
+			case 65: // a
+				moveLeft = true; break;
+			case 40: // down
+				moveDown = true;
+				break;
+			case 83: // s
+				moveBackward = true;
+				break;
+			case 68: // d
+				moveRight = true;
+				break;
+		}
+	};
+	var keyUp = function ( event ) {
+		switch( event.keyCode ) {
+			case 38: // up
+				moveUp = false
+			break;
+			case 87: // w
+				moveForward = false;
+				break;
+			case 65: // a
+				moveLeft = false;
+				break;
+			case 40: // down
+				moveDown = false;
+				break;
+			case 83: // s
+				moveBackward = false;
+				break;
+			case 68: // d
+				moveRight = false;
+				break;
+		}
+	};
+	document.addEventListener( 'keydown', keyDown, false );
+	document.addEventListener( 'keyup', keyUp, false );
+	light = new THREE.DirectionalLight( 0xffffff, 0.5 );
+  light.position.set(0, 50, 0);
+  light.castShadow = true;
+  scene.add( light );
+
+  ambient = new THREE.AmbientLight( 0xffffff, 0.5 );
+  scene.add( ambient );
+}
+
+function animate() {
+	requestAnimationFrame( animate );
+  if (RESOURCES_LOADED == true && textChanged == false) {
+	  document.getElementById("text").innerHTML = "Click to Play";
+	  textChanged = true;
+  }
+	if (controlsEnabled) {
+    updateLaser();
+    updatePlayers();
+    controls.getDirection( direction );
+	  var time = performance.now();
+	  var delta = ( time - prevTime) / 1000;
+	  velocity.x -= velocity.x * 10.0 * delta;
+	  velocity.z -= velocity.z * 10.0 * delta;
+	  //velocity.y -=  9.8 * 100.0 * delta; // 100.0 = mass
+	  moving(delta);
+	  controls.getObject().translateX( velocity.x * delta );
+	  controls.getObject().translateY( velocity.y * delta );
+	  controls.getObject().translateZ( velocity.z * delta );
+	  if (showGun) {
+      setGun("laser");
+    }
+    checkIntersect();
+	  prevTime = time;
+    sendMypos();
+	}
+	renderer.render( scene, camera );
+}
+
+function onResourcesLoaded(){
+  scene.background = new THREE.Color(0x87ceff);
+  meshes["map"] = models["map"].mesh.clone();
+
+	meshes["map"].position.set(0, 10, 11);
+    meshes["map"].scale.set(0.1, 0.1, 0.1);
+	scene.add(meshes["map"]);
+    meshes["laser"] = models["laser"].mesh.clone();
+  meshes["laser"].scale.set(0.05, 0.05, 0.05);
+    scene.add(meshes["laser"]);
+	//meshes["player"] = models["player"].mesh.clone();
+	//meshes["player"].position.set(0, -0.85, -90);
+  //playerId = meshes["player"].uuid;
+	//scene.add(meshes["player"]);
+}
+
+function Player(socketId, uuid, x, y, z, name, angle) {
+  this.angle = angle + Math.PI;
+  this.socketId = socketId;
+  this.uuid = uuid;
+  this.x = x;
+  this.y = y;
+  this.z = z;
+  this.name = name;
+  this.mesh = models["player"].mesh.clone();
+  this.mesh.position.set(this.x, this.y - 5.65, this.z);
+  scene.add(this.mesh);
+  this.update = function() {
+    this.mesh.position.set(this.x, this.y - 5.65, this.z);
+    this.mesh.rotation.y = this.angle + Math.PI;
+  }
+}
+
+function Laser(x1, y1, z1, x2, y2, z2) {
+  //matrix4.makeRotationFromQuaternion(quaternion);
+  this.dead = false;
+  this.life = 20;
+  this.geometry = new THREE.Geometry();
+  this.geometry.vertices.push(
+    new THREE.Vector3(x1, y1, z1),//
+  );
+  //this.geometry.translate(0.28, -0.18, -1.5);
+  //this.geometry.applyMatrix(matrix4);
+  this.geometry.vertices.push(
+    new THREE.Vector3(x2, y2, z2),
+  );
+  this.material = new THREE.LineBasicMaterial({
+      color: 0x00ff00,
+  });
+  this.line = new THREE.Line(this.geometry, this.material);
+  this.add = function() {
+    scene.add(this.line);
+  }
+  this.update = function() {
+    this.life--;
+    if (this.life < 0) {
+      this.dead = true;
+    }
+  }
+}
+
+function shoot() {
+  let pos = controls.getObject().position;
+  if (point != undefined) {
+    let index = lines.length;
+    lines.push(new Laser(pos.x, pos.y - 0.005, pos.z, point.x, point.y, point.z));
+    lines[index].add();
+  }
+  if (intersected) {
+    console.log("hit");
+    hits++;
+  }
+}
+
+function moving(delta) {
+  var intersects, collide = false, dir = new THREE.Vector3();
+  position = controls.getObject().getWorldPosition(new THREE.Vector3());
+  position.multiply(new THREE.Vector3(1, 0.1, 1));
+
+
+  if ( moveForward ) {
+
+    dir.multiplyVectors(direction, new THREE.Vector3(1, 0, 1));
+    raycaster.set(position, dir);
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    dir.set(-(Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, -(Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    dir.set((Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, (Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    if (collide == false) {
+      velocity.z -= 500.0 * delta;
+    }
+  }
+
+  if ( moveBackward ) {
+
+    dir.multiplyVectors(direction, new THREE.Vector3(-1, 0, -1));
+    raycaster.set(position, dir);
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    dir.set((Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, (Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    dir.set(-(Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, -(Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    if (collide == false) {
+      velocity.z += 500.0 * delta;
+    }
+  }
+
+  if ( moveLeft ) {
+    dir.set(-(Math.cos(Math.PI/2)* direction.x - Math.sin(Math.PI/2) * direction.z), 0, -(Math.sin(Math.PI/2)* direction.x + Math.cos(Math.PI/2) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.x = 0;
+      collide = true;
+    }
+
+    dir.set(-(Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, -(Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    dir.set(-(Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, -(Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    if (collide == false) {
+      velocity.x -= 500.0 * delta;
+    }
+  }
+
+  if ( moveRight ) {
+    dir.set((Math.cos(Math.PI/2)* direction.x - Math.sin(Math.PI/2) * direction.z), 0, (Math.sin(Math.PI/2)* direction.x + Math.cos(Math.PI/2) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.x = 0;
+      collide = true;
+    }
+
+    dir.set((Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, (Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    dir.set((Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, (Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+    raycaster.set(position, dir);
+
+    intersects = raycaster.intersectObject( meshes["map"], true );
+    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+      velocity.z = 0;
+      collide = true;
+    }
+
+    if (collide == false) {
+      velocity.x += 500.0 * delta;
+    }
+  }
+  if ( moveUp ) {
+    controls.getObject().position.y += 1
+  }
+  if ( moveDown ) {
+    controls.getObject().position.y -= 1;
+  }
+}
+
+
+function checkIntersect() {
+  raycaster.set(controls.getObject().position, direction);
+  var intersects = raycaster.intersectObject( meshes["map"], true );
+  if (intersects.length > 0) {
+    point = intersects[0].point;
+  } else {
+    point = undefined;
+  }
+  /*if (intersects.length > 0 && intersects[0].object.parent.uuid == playerId) {
+    intersected = true;
+  } else {
+    intersected = false;
+  }*/
+}
+
+function setGun(gun) {
+  quaternion.copy(controls.getObject().quaternion);
+  quaternion.multiply(controls.getObject().children[0].quaternion);
+  angle.setFromQuaternion(quaternion);
+  meshes[gun].setRotationFromEuler(angle);
+  meshes[gun].position.set(
+    controls.getObject().position.x,
+    controls.getObject().position.y,
+    controls.getObject().position.z
+  );
+}
+
+function updatePlayers() {
+  for (var i = 0; i < players.length; i++) {
+    players[i].update();
+  }
+}
+
+function updateLaser() {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    lines[i].update();
+    if (lines[i].dead) {
+      scene.remove(scene.getObjectById(lines[i].line.id));
+      lines.splice(i, 1);
+    }
+  }
+}
+
+function createPlayer(data) {
+  let checkIfExists = false;
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].socketId == data.socketId) {
+      checkIfExists = true;
+      break;
+    }
+  }
+  if (checkIfExists == false) {
+    console.log("created Player");
+    console.log(data);
+    players.push(new Player(data.socketId, data.uuid, data.x, data.y, data.z, data.name, data.angle));
+  }
+}
+
+function removePlayer(socketId) {
+  for (let i = players.length - 1; i >= 0; i--) {
+    if (players[i].socketId == socketId) {
+      scene.remove(scene.getObjectById(players[i].mesh.id));
+      players.splice(i, 1);
+      if (name != 1) {
+        name = players.length;
+      }
+    }
+  }
+}
+
+function sendHost() {
+  let pos = controls.getObject().getWorldPosition();
+  let data = {
+    x: pos.x,
+    y: pos.y,
+    z: pos.z,
+    socketId: socketId,
+    uuid: uuid,
+    name: name,
+    angle: controls.getObject().rotation.y,
+  };
+  socket.emit('sentHost', data);
+}
+
+function updateOtherPlayers(data) {
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].socketId == data.socketId) {
+      players[i].x = data.x;
+      players[i].y = data.y;
+      players[i].z = data.z;
+      players[i].angle = data.angle;
+    }
+  }
+}
+
+function spawnLocation() {
+  let random = Math.round((Math.random() * 3));
+  switch (random) {
+    case 0:
+      controls.getObject().position.x = -33.5;
+      controls.getObject().position.z = 110;
+      break;
+    case 1:
+      controls.getObject().position.x = 33.5;
+      controls.getObject().position.z = 110;
+      break;
+    case 2:
+      controls.getObject().position.x = -33.5;
+      controls.getObject().position.z = -110;
+      controls.getObject().rotation.y += Math.PI;
+      break;
+    case 3:
+      controls.getObject().position.x = 33.5;
+      controls.getObject().position.z = -110;
+      controls.getObject().rotation.y += Math.PI;
+      break;
+  }
+}
+
+function checkResourcesLoaded(data) {
+  if(RESOURCES_LOADED == false) {
+     setTimeout(checkResourcesLoaded.bind(this, data), 1000);
+  } else {
+    createPlayer(data);
+  }
+}
+
+function sendMypos() {
+  let data = {
+    x: controls.getObject().position.x,
+    y: controls.getObject().position.y,
+    z: controls.getObject().position.z,
+    angle: controls.getObject().rotation.y,
+    socketId: socketId,
+  };
+  socket.emit('updateHost', data);
+}

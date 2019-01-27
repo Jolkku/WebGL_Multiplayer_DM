@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>WebGL test</title>
+    <meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+    <script src="libs/stats.min.js"></script>
+    <script src="libs/three.min.js"></script>
+    <script src="libs/PointerLockControls.js"></script>
+    <script src="loaders/MTLLoader.js"></script>
+    <script src="loaders/OBJLoader.js"></script>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="values">
+      <span>
+        intersected:
+        <span id="intersected"></span>
+      </span>
+      <br>
+      <span>
+        hits on enemy:
+        <span id="hits"></span>
+      </span>
+    </div>
+    <div id="blocker">
+			<div id="instructions">
+				<span id="text" style="font-size:40px">Loading</span>
+			</div>
+		</div>
+    <img id="crosshair" src="crosshair.png" alt="crosshair">
+    <script src="game.js"></script>
+  </body>
+</html>
