@@ -253,17 +253,12 @@ function animate() {
 function onResourcesLoaded(){
   scene.background = new THREE.Color(0x87ceff);
   meshes["map"] = models["map"].mesh.clone();
-
 	meshes["map"].position.set(0, 10, 11);
     meshes["map"].scale.set(0.1, 0.1, 0.1);
 	scene.add(meshes["map"]);
     meshes["laser"] = models["laser"].mesh.clone();
   meshes["laser"].scale.set(0.05, 0.05, 0.05);
     scene.add(meshes["laser"]);
-	//meshes["player"] = models["player"].mesh.clone();
-	//meshes["player"].position.set(0, -0.85, -90);
-  //playerId = meshes["player"].uuid;
-	//scene.add(meshes["player"]);
 }
 
 function Player(socketId, uuid, x, y, z, name, angle) {
@@ -276,6 +271,7 @@ function Player(socketId, uuid, x, y, z, name, angle) {
   this.name = name;
   this.mesh = models["player"].mesh.clone();
   this.mesh.position.set(this.x, this.y - 5.65, this.z);
+  this.mesh.rotation.y += Math.PI;
   scene.add(this.mesh);
   this.update = function() {
     this.mesh.position.set(this.x, this.y - 5.65, this.z);
