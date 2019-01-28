@@ -17,8 +17,8 @@ var models = {
     mesh: null
   },
   player: {
-    obj: "player2.obj",
-    mtl: "player2.mtl",
+    obj: "player.obj",
+    mtl: "player.mtl",
     mesh: null
   },
   laser: {
