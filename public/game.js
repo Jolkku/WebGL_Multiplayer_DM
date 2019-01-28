@@ -1,4 +1,4 @@
-var element, camera, scene, matrix4, renderer, light, ambient, cube, socket, socketId, uuid, name, controls, point, position, angle, direction, raycaster, quaternion, arrow, playerId, socket, intersected = false, showGun = true, hits = 0, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lines = [];
+var element, camera, scene, matrix4, renderer, light, ambient, cube, socket, socketId, uuid, name, controls, point, position, angle, direction, raycaster, quaternion, arrow, socket, intersected = false, showGun = true, hits = 0, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lines = [];
 var blocker = document.getElementById('blocker');
 var instructions = document.getElementById('instructions');
 var crosshair = document.getElementById('crosshair');
@@ -11,8 +11,8 @@ var models = {
     mesh: null
   },
   player: {
-    obj: "player.obj",
-    mtl: "player.mtl",
+    obj: "player2.obj",
+    mtl: "player2.mtl",
     mesh: null
   },
   laser: {
@@ -89,7 +89,7 @@ var moveDown = false;
 var prevTime = performance.now();
 var velocity = new THREE.Vector3();
 angle = new THREE.Euler();
-//matrix4 = new THREE.Matrix4();
+matrix4 = new THREE.Matrix4();
 quaternion = new THREE.Quaternion();
 raycaster = new THREE.Raycaster();
 direction = new THREE.Vector3();
@@ -162,7 +162,7 @@ function init() {
 	}
 
 	controls = new THREE.PointerLockControls( camera );
-	controls.getObject().position.y = 4.8;
+	controls.getObject().position.y = 5.76;
   spawnLocation();
   console.log(controls.getObject().position);
 	document.body.appendChild( renderer.domElement);
@@ -228,7 +228,7 @@ function animate() {
 	  textChanged = true;
   }
 	if (controlsEnabled) {
-    updateLaser();
+    document.getElementById("intersected").innerHTML = intersected;
     updatePlayers();
     controls.getDirection( direction );
 	  var time = performance.now();
@@ -240,6 +240,7 @@ function animate() {
 	  controls.getObject().translateX( velocity.x * delta );
 	  controls.getObject().translateY( velocity.y * delta );
 	  controls.getObject().translateZ( velocity.z * delta );
+    updateLaser();
 	  if (showGun) {
       setGun("laser");
     }
@@ -270,25 +271,27 @@ function Player(socketId, uuid, x, y, z, name, angle) {
   this.z = z;
   this.name = name;
   this.mesh = models["player"].mesh.clone();
-  this.mesh.position.set(this.x, this.y - 5.65, this.z);
+  this.mesh.position.set(this.x, this.y - 6.6, this.z);
   this.mesh.rotation.y += Math.PI;
   scene.add(this.mesh);
   this.update = function() {
-    this.mesh.position.set(this.x, this.y - 5.65, this.z);
+    this.mesh.position.set(this.x, this.y - 6.6, this.z);
     this.mesh.rotation.y = this.angle + Math.PI;
   }
 }
 
 function Laser(x1, y1, z1, x2, y2, z2) {
-  //matrix4.makeRotationFromQuaternion(quaternion);
+  matrix4.makeRotationFromQuaternion(quaternion);
+  this.pos = new THREE.Vector3();
   this.dead = false;
-  this.life = 20;
+  this.life = 5;
   this.geometry = new THREE.Geometry();
   this.geometry.vertices.push(
-    new THREE.Vector3(x1, y1, z1),//
+    new THREE.Vector3(0, 0, 0),
   );
-  //this.geometry.translate(0.28, -0.18, -1.5);
-  //this.geometry.applyMatrix(matrix4);
+  this.geometry.translate(0.28, -0.18, -1.5);
+  this.geometry.applyMatrix(matrix4);
+  this.geometry.vertices[0].add(new THREE.Vector3(x1, y1, z1));
   this.geometry.vertices.push(
     new THREE.Vector3(x2, y2, z2),
   );
@@ -300,6 +303,21 @@ function Laser(x1, y1, z1, x2, y2, z2) {
     scene.add(this.line);
   }
   this.update = function() {
+    controls.getObject().getWorldPosition(this.pos);
+    matrix4.makeRotationFromQuaternion(quaternion);
+    scene.remove(this.line);
+    this.geometry.vertices.splice(0, 2);
+    this.geometry.vertices.push(
+      new THREE.Vector3(0, 0, 0),
+    );
+    this.geometry.translate(0.28, -0.18, -1.5);
+    this.geometry.applyMatrix(matrix4);
+    this.geometry.vertices[0].add(new THREE.Vector3(this.pos.x, this.pos.y, this.pos.z));
+    this.geometry.vertices.push(
+      new THREE.Vector3(point.x, point.y, point.z)
+    );
+    this.line = new THREE.Line(this.geometry, this.material);
+    scene.add(this.line);
     this.life--;
     if (this.life < 0) {
       this.dead = true;
@@ -323,7 +341,7 @@ function shoot() {
 function moving(delta) {
   var intersects, collide = false, dir = new THREE.Vector3();
   position = controls.getObject().getWorldPosition(new THREE.Vector3());
-  position.multiply(new THREE.Vector3(1, 0.1, 1));
+  position.sub(new THREE.Vector3(0, 5.6, 0));
 
 
   if ( moveForward ) {
@@ -331,7 +349,7 @@ function moving(delta) {
     dir.multiplyVectors(direction, new THREE.Vector3(1, 0, 1));
     raycaster.set(position, dir);
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
@@ -340,7 +358,7 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
@@ -349,13 +367,13 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
 
     if (collide == false) {
-      velocity.z -= 500.0 * delta;
+      velocity.z -= 400.0 * delta;
     }
   }
 
@@ -364,7 +382,7 @@ function moving(delta) {
     dir.multiplyVectors(direction, new THREE.Vector3(-1, 0, -1));
     raycaster.set(position, dir);
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
@@ -373,7 +391,7 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
@@ -382,13 +400,13 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
 
     if (collide == false) {
-      velocity.z += 500.0 * delta;
+      velocity.z += 400.0 * delta;
     }
   }
 
@@ -397,7 +415,7 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.x = 0;
       collide = true;
     }
@@ -406,7 +424,7 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
@@ -415,13 +433,13 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
 
     if (collide == false) {
-      velocity.x -= 500.0 * delta;
+      velocity.x -= 400.0 * delta;
     }
   }
 
@@ -430,7 +448,7 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.x = 0;
       collide = true;
     }
@@ -439,7 +457,7 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
@@ -448,13 +466,13 @@ function moving(delta) {
     raycaster.set(position, dir);
 
     intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 3 && noclip == false) {
+    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
       velocity.z = 0;
       collide = true;
     }
 
     if (collide == false) {
-      velocity.x += 500.0 * delta;
+      velocity.x += 400.0 * delta;
     }
   }
   if ( moveUp ) {
@@ -467,18 +485,27 @@ function moving(delta) {
 
 
 function checkIntersect() {
+  let objects = [meshes["map"]];
+  for (var i = 0; i < players.length; i++) {
+    objects.push(players[i].mesh);
+  }
   raycaster.set(controls.getObject().position, direction);
-  var intersects = raycaster.intersectObject( meshes["map"], true );
+  var intersects = raycaster.intersectObjects( objects, true );
   if (intersects.length > 0) {
     point = intersects[0].point;
   } else {
     point = undefined;
   }
-  /*if (intersects.length > 0 && intersects[0].object.parent.uuid == playerId) {
-    intersected = true;
-  } else {
-    intersected = false;
-  }*/
+  if (intersects.length > 0) {
+    for (var i = 0; i < players.length; i++) {
+      if (intersects[0].object.parent.uuid == players[i].mesh.uuid) {
+        intersected = true;
+        break;
+      } else {
+        intersected = false;
+      }
+    }
+  }
 }
 
 function setGun(gun) {
@@ -602,4 +629,16 @@ function sendMypos() {
     socketId: socketId,
   };
   socket.emit('updateHost', data);
+}
+
+function setLeaderBoard(array) {
+  for (var e = "", n = 1, i = 0; i < array.length; i += 3) {
+    e += "<div class='playersItem'>",
+    e += "<div class='playersCounter'>" + n + ".</div>",
+    e += "<div class='playersName" + array[i + 2] + "'>" + array[i] + "</div>",
+    e += "<div class='playersScore'>" + array[i + 1] + "</div>",
+    e += "</div>",
+    n++;
+    playersContainer.innerHTML = e;
+  }
 }

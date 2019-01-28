@@ -44,8 +44,52 @@ img {
 }
 
 div.values {
-  visibility: hidden;
+  visibility: visible;
   float: left;
   position: absolute;
   margin-left: 10px;
+}
+
+#players {
+  height: auto;
+  padding: 10px;
+  padding-left: 20px;
+  padding-right: 20px;
+  font-size: 23px;
+  text-align: left;
+	width: 170px;
+  top: 10px;
+  right: 10px;
+  position: absolute;
+  margin-right: 5px;
+  background-color: rgba(0,0,0,0.2);
+}
+
+#playersContainer {
+	text-align: left;
+}
+
+.playersItem {
+	display: flex;
+	font-size: 18px;
+}
+.playersCounter {
+  margin-right: 8px;
+  width: 20px;
+	color: rgba(255, 255, 255, 0.7);
+}
+.playersName, .playersNameM {
+	color: #eb5656;
+	flex-grow: 1;
+	padding-left: 5px;
+	overflow: hidden;
+  white-space: nowrap;
+}
+.playersNameM {
+	color: #fff;
+}
+.playersScore {
+  margin-left: 8px;
+	text-align: right;
+	color: rgba(255, 255, 255, 0.7);
 }
