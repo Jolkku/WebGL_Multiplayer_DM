@@ -1,4 +1,10 @@
-var element, camera, scene, matrix4, renderer, light, ambient, cube, socket, socketId, uuid, name, controls, point, position, angle, direction, raycaster, quaternion, arrow, socket, intersected = false, showGun = true, hits = 0, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lines = [];
+var element, camera, scene, matrix4, renderer, light, ambient, socket, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, hits = 0, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lines = [], intersectedPlayer = '';
+var me = {
+  name: undefined,
+  socketId: undefined,
+  uuid: undefined,
+  score: 0,
+}
 var blocker = document.getElementById('blocker');
 var instructions = document.getElementById('instructions');
 var crosshair = document.getElementById('crosshair');
@@ -95,13 +101,14 @@ raycaster = new THREE.Raycaster();
 direction = new THREE.Vector3();
 var RESOURCES_LOADED = false;
 
-socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
-//socket = io.connect('localhost:3000');
+//socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
+socket = io.connect('localhost:3000');
 socket.on('createPlayer', function(data){checkResourcesLoaded(data)});
-socket.on('yourData', function(data){socketId = data.socketId; uuid = data.uuid; name = data.name});
+socket.on('yourData', function(data){me.socketId = data.socketId; me.uuid = data.uuid; me.name = data.name});
 socket.on('removePlayer', function(socketId){removePlayer(socketId)});
 socket.on('sendHost', function(){sendHost()});
 socket.on('updatePlayer', function(data){updateOtherPlayers(data)});
+socket.on('updateKill', function(data){updateKill(data)});
 
 init();
 animate();
@@ -226,9 +233,14 @@ function animate() {
   if (RESOURCES_LOADED == true && textChanged == false) {
 	  document.getElementById("text").innerHTML = "Click to Play";
 	  textChanged = true;
+    if (players.length < 1) {
+      setLeaderBoard([me.name, 0, "M"]);
+    }
   }
 	if (controlsEnabled) {
     document.getElementById("intersected").innerHTML = intersected;
+    document.getElementById("intersectedPlayer").innerHTML = intersectedPlayer;
+    document.getElementById("myscore").innerHTML = me.score;
     updatePlayers();
     controls.getDirection( direction );
 	  var time = performance.now();
@@ -262,8 +274,9 @@ function onResourcesLoaded(){
     scene.add(meshes["laser"]);
 }
 
-function Player(socketId, uuid, x, y, z, name, angle) {
-  this.angle = angle + Math.PI;
+function Player(socketId, uuid, x, y, z, name, angle, score) {
+  this.score = score;
+  this.angle = angle;
   this.socketId = socketId;
   this.uuid = uuid;
   this.x = x;
@@ -272,7 +285,7 @@ function Player(socketId, uuid, x, y, z, name, angle) {
   this.name = name;
   this.mesh = models["player"].mesh.clone();
   this.mesh.position.set(this.x, this.y - 6.6, this.z);
-  this.mesh.rotation.y += Math.PI;
+  this.mesh.rotation.y = this.angle;
   scene.add(this.mesh);
   this.update = function() {
     this.mesh.position.set(this.x, this.y - 6.6, this.z);
@@ -333,8 +346,11 @@ function shoot() {
     lines[index].add();
   }
   if (intersected) {
-    console.log("hit");
-    hits++;
+    let data = {
+      from: me.socketId,
+      kill: intersectedPlayer,
+    }
+    socket.emit('killPlayer', data);
   }
 }
 
@@ -500,9 +516,11 @@ function checkIntersect() {
     for (var i = 0; i < players.length; i++) {
       if (intersects[0].object.parent.uuid == players[i].mesh.uuid) {
         intersected = true;
+        intersectedPlayer = players[i].socketId;
         break;
       } else {
         intersected = false;
+        intersectedPlayer = '';
       }
     }
   }
@@ -546,8 +564,8 @@ function createPlayer(data) {
   }
   if (checkIfExists == false) {
     console.log("created Player");
-    console.log(data);
-    players.push(new Player(data.socketId, data.uuid, data.x, data.y, data.z, data.name, data.angle));
+    players.push(new Player(data.socketId, data.uuid, data.x, data.y, data.z, data.name, data.angle, data.score));
+    setArray();
   }
 }
 
@@ -556,8 +574,9 @@ function removePlayer(socketId) {
     if (players[i].socketId == socketId) {
       scene.remove(scene.getObjectById(players[i].mesh.id));
       players.splice(i, 1);
-      if (name != 1) {
-        name = players.length;
+      setArray();
+      if (me.name != 1) {
+        me.name = players.length + 1;
       }
     }
   }
@@ -569,10 +588,11 @@ function sendHost() {
     x: pos.x,
     y: pos.y,
     z: pos.z,
-    socketId: socketId,
-    uuid: uuid,
-    name: name,
+    socketId: me.socketId,
+    uuid: me.uuid,
+    name: me.name,
     angle: controls.getObject().rotation.y,
+    score: me.score,
   };
   socket.emit('sentHost', data);
 }
@@ -626,19 +646,60 @@ function sendMypos() {
     y: controls.getObject().position.y,
     z: controls.getObject().position.z,
     angle: controls.getObject().rotation.y,
-    socketId: socketId,
+    socketId: me.socketId,
   };
   socket.emit('updateHost', data);
+}
+
+function updateKill(data) {
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].socketId == data.kill) {
+      console.log("Player" + players[i].name + ' has died');
+      //players[i].mesh.visible = false;
+    } else if (me.socketId == data.kill) {
+      console.log("I have died");
+      // death animation
+    }
+    if (players[i].socketId == data.from) {
+      players[i].score += 100;
+      setArray();
+    }
+  }
+  if (me.socketId == data.from) {
+    me.score += 100;
+    setArray();
+  }
 }
 
 function setLeaderBoard(array) {
   for (var e = "", n = 1, i = 0; i < array.length; i += 3) {
     e += "<div class='playersItem'>",
     e += "<div class='playersCounter'>" + n + ".</div>",
-    e += "<div class='playersName" + array[i + 2] + "'>" + array[i] + "</div>",
+    e += "<div class='playersName" + array[i + 2] + "'>" + "Player" + array[i] + "</div>",
     e += "<div class='playersScore'>" + array[i + 1] + "</div>",
     e += "</div>",
     n++;
     playersContainer.innerHTML = e;
   }
+}
+
+function setArray() {
+  let sortArray = [me];
+  let sendArray = [];
+  for (var i = 0; i < players.length; i++) {
+    sortArray.push(players[i]);
+  }
+  sortArray.sort((a, b) => b.score - a.score);
+  console.log(sortArray);
+  for (var i = 0; i < sortArray.length; i++) {
+    sendArray.push(sortArray[i].name);
+    sendArray.push(sortArray[i].score);
+    if (sortArray[i] == me) {
+      sendArray.push("M");
+    } else {
+      sendArray.push('');
+    }
+  }
+  console.log(sendArray);
+  setLeaderBoard(sendArray);
 }

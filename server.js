@@ -29,7 +29,7 @@ function removeConnection(socket) {
 
 function newConnection(socket) {
   let uuid = uuidv4();
-  players.push(new Player(socket, uuid));
+  players.push(new Player(socket.id, uuid));
   let data = {
     socketId: socket.id,
     uuid: uuid,
@@ -56,12 +56,20 @@ function newConnection(socket) {
     }
   );
 
+  socket.on('killPlayer',
+    function(data) {
+      io.emit('updateKill', data);
+    }
+  );
+
   socket.on('disconnect',
     function() {
+      console.log(socket.id);
       io.emit('removePlayer', socket.id);
       for (var i = players.length - 1; i >= 0; i--) {
         if (players[i].socketId == socket.id) {
           players.splice(i, 1);
+          console.log("ran");
         }
       }
       removeConnection();
