@@ -1,9 +1,11 @@
-var element, camera, scene, matrix4, renderer, light, ambient, socket, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, hits = 0, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lines = [], intersectedPlayer = '';
+var element, camera, scene, matrix4, renderer, light, ambient, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lines = [], intersectedPlayer = '';
 var me = {
   name: undefined,
   socketId: undefined,
   uuid: undefined,
   score: 0,
+  canFire: true,
+  ammo: 2,
 }
 var blocker = document.getElementById('blocker');
 var instructions = document.getElementById('instructions');
@@ -234,13 +236,13 @@ function animate() {
 	  document.getElementById("text").innerHTML = "Click to Play";
 	  textChanged = true;
     if (players.length < 1) {
-      setLeaderBoard([me.name, 0, "M"]);
+      setLeaderBoard([1, 0, "M"]);
     }
   }
 	if (controlsEnabled) {
-    document.getElementById("intersected").innerHTML = intersected;
-    document.getElementById("intersectedPlayer").innerHTML = intersectedPlayer;
-    document.getElementById("myscore").innerHTML = me.score;
+    //document.getElementById("intersected").innerHTML = intersected;
+    //document.getElementById("intersectedPlayer").innerHTML = intersectedPlayer;
+    document.getElementById("myammo").innerHTML = me.ammo;
     updatePlayers();
     controls.getDirection( direction );
 	  var time = performance.now();
@@ -340,17 +342,25 @@ function Laser(x1, y1, z1, x2, y2, z2) {
 
 function shoot() {
   let pos = controls.getObject().position;
-  if (point != undefined) {
-    let index = lines.length;
-    lines.push(new Laser(pos.x, pos.y - 0.005, pos.z, point.x, point.y, point.z));
-    lines[index].add();
-  }
-  if (intersected) {
-    let data = {
-      from: me.socketId,
-      kill: intersectedPlayer,
+
+  if (me.canFire) {
+    me.ammo--;
+    if (point != undefined) {
+      let index = lines.length;
+      lines.push(new Laser(pos.x, pos.y - 0.005, pos.z, point.x, point.y, point.z));
+      lines[index].add();
     }
-    socket.emit('killPlayer', data);
+    if (intersected) {
+      let data = {
+        from: me.socketId,
+        kill: intersectedPlayer,
+      }
+      socket.emit('killPlayer', data);
+    }
+    if (me.ammo < 1) {
+      me.canFire = false;
+      reloadAmmo();
+    }
   }
 }
 
@@ -702,4 +712,11 @@ function setArray() {
   }
   console.log(sendArray);
   setLeaderBoard(sendArray);
+}
+
+function reloadAmmo() {
+  id1 = setTimeout(function() {
+    me.canFire = true;
+    me.ammo = 2
+  }, rtime);
 }

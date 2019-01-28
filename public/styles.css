@@ -48,6 +48,8 @@ div.values {
   float: left;
   position: absolute;
   margin-left: 10px;
+  margin-top: 10px;
+  font-size: 20px;
 }
 
 #players {
