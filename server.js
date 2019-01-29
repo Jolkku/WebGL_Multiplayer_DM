@@ -1,8 +1,9 @@
 var players = [];
 
-function Player(socketId, uuid) {
+function Player(socketId, uuid, name) {
   this.socketId = socketId;
   this.uuid = uuid;
+  this.name = name;
 }
 
 let port = process.env.PORT;
@@ -29,7 +30,7 @@ function removeConnection(socket) {
 
 function newConnection(socket) {
   let uuid = uuidv4();
-  players.push(new Player(socket.id, uuid));
+  players.push(new Player(socket.id, uuid, players.length + 1));
   let data = {
     socketId: socket.id,
     uuid: uuid,
@@ -56,6 +57,12 @@ function newConnection(socket) {
     }
   );
 
+  socket.on('sendlaser',
+    function(data) {
+      socket.broadcast.emit('drawLaser', data);
+    }
+  );
+
   socket.on('killPlayer',
     function(data) {
       io.emit('updateKill', data);
@@ -64,14 +71,18 @@ function newConnection(socket) {
 
   socket.on('disconnect',
     function() {
-      console.log(socket.id);
-      io.emit('removePlayer', socket.id);
+      let data = {
+        socketId: socket.id,
+        name: undefined
+      }
       for (var i = players.length - 1; i >= 0; i--) {
         if (players[i].socketId == socket.id) {
+          data.name = players[i].name;
           players.splice(i, 1);
-          console.log("ran");
         }
       }
+      console.log(data.name);
+      io.emit('removePlayer', data);
       removeConnection();
     }
   );

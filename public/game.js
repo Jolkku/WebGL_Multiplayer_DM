@@ -1,4 +1,4 @@
-var element, camera, scene, matrix4, renderer, light, ambient, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lines = [], intersectedPlayer = '';
+var element, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '';
 var me = {
   name: undefined,
   socketId: undefined,
@@ -107,10 +107,11 @@ socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
 //socket = io.connect('localhost:3000');
 socket.on('createPlayer', function(data){checkResourcesLoaded(data)});
 socket.on('yourData', function(data){me.socketId = data.socketId; me.uuid = data.uuid; me.name = data.name});
-socket.on('removePlayer', function(socketId){removePlayer(socketId)});
+socket.on('removePlayer', function(data){removePlayer(data)});
 socket.on('sendHost', function(){sendHost()});
 socket.on('updatePlayer', function(data){updateOtherPlayers(data)});
 socket.on('updateKill', function(data){updateKill(data)});
+socket.on('drawLaser', function(data){drawLaser(data)});
 
 init();
 animate();
@@ -150,6 +151,9 @@ function init() {
 
 					mesh.traverse(function(node){
 						if( node instanceof THREE.Mesh ){
+              if (node !== undefined && key == "player") {
+								node.geometry.translate(0, -1, 0);
+							}
 							if (node !== undefined && key == "gun") {
 								node.geometry.translate(4, -4.8, -10);
 							}
@@ -173,7 +177,6 @@ function init() {
 	controls = new THREE.PointerLockControls( camera );
 	controls.getObject().position.y = 5.76;
   spawnLocation();
-  console.log(controls.getObject().position);
 	document.body.appendChild( renderer.domElement);
 	scene.add( controls.getObject() );
 	var keyDown = function ( event ) {
@@ -286,18 +289,19 @@ function Player(socketId, uuid, x, y, z, name, angle, score) {
   this.z = z;
   this.name = name;
   this.mesh = models["player"].mesh.clone();
-  this.mesh.position.set(this.x, this.y - 6.6, this.z);
+  this.mesh.position.set(this.x, this.y - 5.6, this.z);
   this.mesh.rotation.y = this.angle;
   scene.add(this.mesh);
   this.update = function() {
-    this.mesh.position.set(this.x, this.y - 6.6, this.z);
+    this.mesh.position.set(this.x, this.y - 5.6, this.z);
     this.mesh.rotation.y = this.angle + Math.PI;
   }
 }
 
-function Laser(x1, y1, z1, x2, y2, z2) {
+function Laser(x1, y1, z1, x2, y2, z2, mine) {
   matrix4.makeRotationFromQuaternion(quaternion);
   this.pos = new THREE.Vector3();
+  this.mine = mine;
   this.dead = false;
   this.life = 5;
   this.geometry = new THREE.Geometry();
@@ -340,15 +344,46 @@ function Laser(x1, y1, z1, x2, y2, z2) {
   }
 }
 
-function shoot() {
-  let pos = controls.getObject().position;
+function EnemyLaser(data) {
+  this.mine = false;
+  this.dead = false;
+  this.life = 5;
+  this.geometry = new THREE.Geometry();
+  this.geometry.vertices.push(
+    new THREE.Vector3(data.x1, data.y1, data.z1),
+    new THREE.Vector3(data.x2, data.y2, data.z2)
+  );
+  this.material = new THREE.LineBasicMaterial({
+      color: 0x00ff00,
+  });
+  this.line = new THREE.Line(this.geometry, this.material);
+  this.update = function() {
+    this.life--;
+    if (this.life < 0) {
+      this.dead = true;
+    }
+  }
+  scene.add(this.line);
+}
 
+function shoot() {
   if (me.canFire) {
+    let pos = controls.getObject().position;
+    let data = {
+      x1: pos.x,
+      x2: point.x,
+      y1: pos.y,
+      y2: point.y,
+      z1: pos.z,
+      z2: point.z,
+      from: me.socketId
+    }
+    socket.emit('sendlaser', data);
     me.ammo--;
     if (point != undefined) {
-      let index = lines.length;
-      lines.push(new Laser(pos.x, pos.y - 0.005, pos.z, point.x, point.y, point.z));
-      lines[index].add();
+      let index = lasers.length;
+      lasers.push(new Laser(pos.x, pos.y - 0.005, pos.z, point.x, point.y, point.z, true));
+      lasers[index].add();
     }
     if (intersected) {
       let data = {
@@ -555,11 +590,11 @@ function updatePlayers() {
 }
 
 function updateLaser() {
-  for (let i = lines.length - 1; i >= 0; i--) {
-    lines[i].update();
-    if (lines[i].dead) {
-      scene.remove(scene.getObjectById(lines[i].line.id));
-      lines.splice(i, 1);
+  for (let i = lasers.length - 1; i >= 0; i--) {
+    lasers[i].update();
+    if (lasers[i].dead) {
+      scene.remove(scene.getObjectById(lasers[i].line.id));
+      lasers.splice(i, 1);
     }
   }
 }
@@ -579,15 +614,12 @@ function createPlayer(data) {
   }
 }
 
-function removePlayer(socketId) {
+function removePlayer(data) {
   for (let i = players.length - 1; i >= 0; i--) {
-    if (players[i].socketId == socketId) {
+    if (players[i].socketId == data.socketId) {
       scene.remove(scene.getObjectById(players[i].mesh.id));
       players.splice(i, 1);
-      setArray();
-      if (me.name != 1) {
-        me.name = players.length + 1;
-      }
+      changeNames(data.name);
     }
   }
 }
@@ -696,12 +728,11 @@ function setLeaderBoard(array) {
 function setArray() {
   let sortArray = [me];
   let sendArray = [];
-  for (var i = 0; i < players.length; i++) {
+  for (let i = 0; i < players.length; i++) {
     sortArray.push(players[i]);
   }
   sortArray.sort((a, b) => b.score - a.score);
-  console.log(sortArray);
-  for (var i = 0; i < sortArray.length; i++) {
+  for (let i = 0; i < sortArray.length; i++) {
     sendArray.push(sortArray[i].name);
     sendArray.push(sortArray[i].score);
     if (sortArray[i] == me) {
@@ -710,7 +741,6 @@ function setArray() {
       sendArray.push('');
     }
   }
-  console.log(sendArray);
   setLeaderBoard(sendArray);
 }
 
@@ -720,3 +750,23 @@ function reloadAmmo() {
     me.ammo = 2
   }, rtime);
 }
+
+function changeNames(name) {
+  let array = [me];
+  for (let i = 0; i < players.length; i++) {
+    array.push(players[i]);
+  }
+  for (let x = 0; x < array.length; x++) {
+    if (name < array[x].name) {
+      array[x].name -= 1;
+    }
+  }
+  setArray();
+}
+
+function drawLaser(data) {
+  lasers.push(new EnemyLaser(data));
+}
+/*
+var id = setInterval(function(){players[0].mesh.rotation.x += 0.05;if(players[0].mesh.rotation.x >= Math.PI/2){clearInterval(id);}}, 5)
+*/
