@@ -826,6 +826,7 @@ function setPlayerVisibility(data) {
 }
 
 function respawn() {
+  me.ammo = 2;
   me.dead = false;
   document.getElementById("text").innerHTML = "Click to Play";
   controls.getObject().position.y = 5.76;
