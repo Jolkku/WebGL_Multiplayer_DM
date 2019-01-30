@@ -1,4 +1,4 @@
-var element, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '';
+var element, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = false, rtime = 3000, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '';
 var me = {
   name: undefined,
   socketId: undefined,
@@ -6,11 +6,15 @@ var me = {
   score: 0,
   canFire: true,
   ammo: 2,
+  visible: false,
+  dead: false,
 }
 var blocker = document.getElementById('blocker');
 var instructions = document.getElementById('instructions');
 var crosshair = document.getElementById('crosshair');
 var values = document.getElementsByClassName('values');
+var leaderBoard = document.getElementById('players');
+var ammoUI = document.getElementById('ammoUI');
 
 var models = {
   map: {
@@ -36,20 +40,35 @@ if ( havePointerLock ) {
 	element = document.body;
 	var pointerlockchange = function ( event ) {
 		if ( document.pointerLockElement === element || document.mozPointerLockElement === element || document.webkitPointerLockElement === element) {
-			if (RESOURCES_LOADED) {
 				controlsEnabled = true;
 				controls.enabled = true;
 				blocker.style.display = 'none';
         crosshair.style.visibility = 'visible';
-        //values.style.visibility = 'visible';
-        document.addEventListener("click", shoot);
-			}
+        leaderBoard.style.visibility = 'visible';
+        ammoUI.style.visibility = 'visible';
+        me.visible = true;
+        showGun = true;
+        let data = {
+          from: me.socketId,
+          visible: true,
+        }
+        socket.emit('sendPlayerVisibility', data);
 		} else {
-			controls.enabled = false;
+      showGun = false;
+			controlsEnabled = false;
+      leaderBoard.style.visibility = 'hidden';
+      ammoUI.style.visibility = 'hidden';
 			blocker.style.display = '-webkit-box';
 			blocker.style.display = '-moz-box';
 			blocker.style.display = 'box';
 			instructions.style.display = '';
+      if (me.dead) {
+        let data = {
+          from: me.socketId,
+          visible: false,
+        }
+        socket.emit('sendPlayerVisibility', data);
+      }
 		}
 	};
 	var pointerlockerror = function ( event ) {
@@ -61,8 +80,9 @@ if ( havePointerLock ) {
 	document.addEventListener( 'pointerlockerror', pointerlockerror, false );
 	document.addEventListener( 'mozpointerlockerror', pointerlockerror, false );
 	document.addEventListener( 'webkitpointerlockerror', pointerlockerror, false );
+  document.addEventListener("click", shoot);
 	instructions.addEventListener( 'click', function ( event ) {
-		if (RESOURCES_LOADED) {
+		if (RESOURCES_LOADED && me.dead == false) {
 		instructions.style.display = 'none';
 		// Ask the browser to lock the pointer
 		element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
@@ -112,6 +132,7 @@ socket.on('sendHost', function(){sendHost()});
 socket.on('updatePlayer', function(data){updateOtherPlayers(data)});
 socket.on('updateKill', function(data){updateKill(data)});
 socket.on('drawLaser', function(data){drawLaser(data)});
+socket.on('setPlayerVisibility', function(data){setPlayerVisibility(data)});
 
 init();
 animate();
@@ -242,7 +263,7 @@ function animate() {
       setLeaderBoard([1, 0, "M"]);
     }
   }
-	if (controlsEnabled) {
+	if (RESOURCES_LOADED) {
     //document.getElementById("intersected").innerHTML = intersected;
     //document.getElementById("intersectedPlayer").innerHTML = intersectedPlayer;
     document.getElementById("myammo").innerHTML = me.ammo;
@@ -254,16 +275,18 @@ function animate() {
 	  velocity.z -= velocity.z * 10.0 * delta;
 	  //velocity.y -=  9.8 * 100.0 * delta; // 100.0 = mass
 	  moving(delta);
-	  controls.getObject().translateX( velocity.x * delta );
-	  controls.getObject().translateY( velocity.y * delta );
-	  controls.getObject().translateZ( velocity.z * delta );
+	  if (controlsEnabled) {
+      controls.getObject().translateX( velocity.x * delta );
+  	  controls.getObject().translateY( velocity.y * delta );
+  	  controls.getObject().translateZ( velocity.z * delta );
+      checkIntersect();
+    }
+    sendMypos();
     updateLaser();
 	  if (showGun) {
       setGun("laser");
     }
-    checkIntersect();
 	  prevTime = time;
-    sendMypos();
 	}
 	renderer.render( scene, camera );
 }
@@ -279,7 +302,8 @@ function onResourcesLoaded(){
     scene.add(meshes["laser"]);
 }
 
-function Player(socketId, uuid, x, y, z, name, angle, score) {
+function Player(socketId, uuid, x, y, z, name, angle, score, visible, dead) {
+  this.dead = dead;
   this.score = score;
   this.angle = angle;
   this.socketId = socketId;
@@ -291,6 +315,7 @@ function Player(socketId, uuid, x, y, z, name, angle, score) {
   this.mesh = models["player"].mesh.clone();
   this.mesh.position.set(this.x, this.y - 5.6, this.z);
   this.mesh.rotation.y = this.angle;
+  this.mesh.visible = visible;
   scene.add(this.mesh);
   this.update = function() {
     this.mesh.position.set(this.x, this.y - 5.6, this.z);
@@ -332,9 +357,15 @@ function Laser(x1, y1, z1, x2, y2, z2, mine) {
     this.geometry.translate(0.28, -0.18, -1.5);
     this.geometry.applyMatrix(matrix4);
     this.geometry.vertices[0].add(new THREE.Vector3(this.pos.x, this.pos.y, this.pos.z));
-    this.geometry.vertices.push(
-      new THREE.Vector3(point.x, point.y, point.z)
-    );
+    if (point != undefined) {
+      this.geometry.vertices.push(
+        new THREE.Vector3(point.x, point.y, point.z)
+      );
+    } else {
+      this.geometry.vertices.push(
+        new THREE.Vector3(x2, y2, z2),
+      );
+    }
     this.line = new THREE.Line(this.geometry, this.material);
     scene.add(this.line);
     this.life--;
@@ -367,7 +398,7 @@ function EnemyLaser(data) {
 }
 
 function shoot() {
-  if (me.canFire) {
+  if (me.canFire && me.dead == false && me.visible) {
     let pos = controls.getObject().position;
     let data = {
       x1: pos.x,
@@ -389,8 +420,15 @@ function shoot() {
       let data = {
         from: me.socketId,
         kill: intersectedPlayer,
+        name: me.name,
       }
       socket.emit('killPlayer', data);
+      for (var i = 0; i < players.length; i++) {
+        if (players[i].socketId = intersectedPlayer) {
+          players[i].mesh.visible = false;
+          players[i].dead = true;
+        }
+      }
     }
     if (me.ammo < 1) {
       me.canFire = false;
@@ -399,148 +437,152 @@ function shoot() {
   }
 }
 
+
+
 function moving(delta) {
-  var intersects, collide = false, dir = new THREE.Vector3();
-  position = controls.getObject().getWorldPosition(new THREE.Vector3());
-  position.sub(new THREE.Vector3(0, 5.6, 0));
+  if (me.dead == false && controlsEnabled) {
+    var intersects, collide = false, dir = new THREE.Vector3();
+    position = controls.getObject().getWorldPosition(new THREE.Vector3());
+    position.sub(new THREE.Vector3(0, 5.6, 0));
 
 
-  if ( moveForward ) {
+    if ( moveForward ) {
 
-    dir.multiplyVectors(direction, new THREE.Vector3(1, 0, 1));
-    raycaster.set(position, dir);
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
+      dir.multiplyVectors(direction, new THREE.Vector3(1, 0, 1));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      dir.set(-(Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, -(Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      dir.set((Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, (Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      if (collide == false) {
+        velocity.z -= 400.0 * delta;
+      }
     }
 
-    dir.set(-(Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, -(Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
-    raycaster.set(position, dir);
+    if ( moveBackward ) {
 
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
+      dir.multiplyVectors(direction, new THREE.Vector3(-1, 0, -1));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      dir.set((Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, (Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      dir.set(-(Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, -(Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      if (collide == false) {
+        velocity.z += 400.0 * delta;
+      }
     }
 
-    dir.set((Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, (Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
-    raycaster.set(position, dir);
+    if ( moveLeft ) {
+      dir.set(-(Math.cos(Math.PI/2)* direction.x - Math.sin(Math.PI/2) * direction.z), 0, -(Math.sin(Math.PI/2)* direction.x + Math.cos(Math.PI/2) * direction.z));
+      raycaster.set(position, dir);
 
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.x = 0;
+        collide = true;
+      }
+
+      dir.set(-(Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, -(Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      dir.set(-(Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, -(Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      if (collide == false) {
+        velocity.x -= 400.0 * delta;
+      }
     }
 
-    if (collide == false) {
-      velocity.z -= 400.0 * delta;
+    if ( moveRight ) {
+      dir.set((Math.cos(Math.PI/2)* direction.x - Math.sin(Math.PI/2) * direction.z), 0, (Math.sin(Math.PI/2)* direction.x + Math.cos(Math.PI/2) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.x = 0;
+        collide = true;
+      }
+
+      dir.set((Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, (Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      dir.set((Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, (Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+        velocity.z = 0;
+        collide = true;
+      }
+
+      if (collide == false) {
+        velocity.x += 400.0 * delta;
+      }
     }
-  }
-
-  if ( moveBackward ) {
-
-    dir.multiplyVectors(direction, new THREE.Vector3(-1, 0, -1));
-    raycaster.set(position, dir);
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
+    if ( moveUp ) {
+      controls.getObject().position.y += 1
     }
-
-    dir.set((Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, (Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
-    raycaster.set(position, dir);
-
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
+    if ( moveDown ) {
+      controls.getObject().position.y -= 1;
     }
-
-    dir.set(-(Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, -(Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
-    raycaster.set(position, dir);
-
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
-    }
-
-    if (collide == false) {
-      velocity.z += 400.0 * delta;
-    }
-  }
-
-  if ( moveLeft ) {
-    dir.set(-(Math.cos(Math.PI/2)* direction.x - Math.sin(Math.PI/2) * direction.z), 0, -(Math.sin(Math.PI/2)* direction.x + Math.cos(Math.PI/2) * direction.z));
-    raycaster.set(position, dir);
-
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.x = 0;
-      collide = true;
-    }
-
-    dir.set(-(Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, -(Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
-    raycaster.set(position, dir);
-
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
-    }
-
-    dir.set(-(Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, -(Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
-    raycaster.set(position, dir);
-
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
-    }
-
-    if (collide == false) {
-      velocity.x -= 400.0 * delta;
-    }
-  }
-
-  if ( moveRight ) {
-    dir.set((Math.cos(Math.PI/2)* direction.x - Math.sin(Math.PI/2) * direction.z), 0, (Math.sin(Math.PI/2)* direction.x + Math.cos(Math.PI/2) * direction.z));
-    raycaster.set(position, dir);
-
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.x = 0;
-      collide = true;
-    }
-
-    dir.set((Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, (Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
-    raycaster.set(position, dir);
-
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
-    }
-
-    dir.set((Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, (Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
-    raycaster.set(position, dir);
-
-    intersects = raycaster.intersectObject( meshes["map"], true );
-    if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
-      velocity.z = 0;
-      collide = true;
-    }
-
-    if (collide == false) {
-      velocity.x += 400.0 * delta;
-    }
-  }
-  if ( moveUp ) {
-    controls.getObject().position.y += 1
-  }
-  if ( moveDown ) {
-    controls.getObject().position.y -= 1;
   }
 }
 
@@ -609,7 +651,7 @@ function createPlayer(data) {
   }
   if (checkIfExists == false) {
     console.log("created Player");
-    players.push(new Player(data.socketId, data.uuid, data.x, data.y, data.z, data.name, data.angle, data.score));
+    players.push(new Player(data.socketId, data.uuid, data.x, data.y, data.z, data.name, data.angle, data.score, data.visible, data.dead));
     setArray();
   }
 }
@@ -635,6 +677,8 @@ function sendHost() {
     name: me.name,
     angle: controls.getObject().rotation.y,
     score: me.score,
+    visible: me.visible,
+    dead: me.dead,
   };
   socket.emit('sentHost', data);
 }
@@ -700,6 +744,15 @@ function updateKill(data) {
       //players[i].mesh.visible = false;
     } else if (me.socketId == data.kill) {
       console.log("I have died");
+      me.dead = true;
+      me.visible = false;
+      document.getElementById("text").innerHTML = "You were killed by Player" + data.name;
+      showGun = false;
+      blocker.style.background = "rgba(0,0,0,0.8)";
+      crosshair.style.visibility = 'hidden';
+      setTimeout(function () {
+        respawn();
+      }, 2000);
       // death animation
     }
     if (players[i].socketId == data.from) {
@@ -767,6 +820,27 @@ function changeNames(name) {
 function drawLaser(data) {
   lasers.push(new EnemyLaser(data));
 }
+
+function setPlayerVisibility(data) {
+  console.log(data);
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].socketId == data.from) {
+      players[i].mesh.visible = data.visible;
+    }
+  }
+}
+
+function respawn() {
+  me.dead = false;
+  document.getElementById("text").innerHTML = "Click to Play";
+  controls.getObject().position.y = 5.76;
+  blocker.style.background = "rgba(0,0,0,0.5)";
+  controls.getObject().children[0].rotation.x = 0;
+  controls.getObject().rotation.y = 0;
+  spawnLocation();
+}
+
+
 /*
 var id = setInterval(function(){players[0].mesh.rotation.x += 0.05;if(players[0].mesh.rotation.x >= Math.PI/2){clearInterval(id);}}, 5)
 */

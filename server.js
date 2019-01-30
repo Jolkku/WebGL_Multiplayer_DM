@@ -57,6 +57,12 @@ function newConnection(socket) {
     }
   );
 
+  socket.on('sendPlayerVisibility',
+    function(data) {
+      socket.broadcast.emit('setPlayerVisibility', data);
+    }
+  );
+
   socket.on('sendlaser',
     function(data) {
       socket.broadcast.emit('drawLaser', data);

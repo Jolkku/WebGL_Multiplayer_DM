@@ -53,6 +53,7 @@ div.values {
 }
 
 #players {
+  visibility: hidden;
   height: auto;
   padding: 10px;
   padding-left: 20px;
