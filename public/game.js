@@ -153,7 +153,7 @@ function init() {
   	element = document.body;
   	var pointerlockchange = function ( event ) {
   		if ( document.pointerLockElement === element || document.mozPointerLockElement === element || document.webkitPointerLockElement === element) {
-  				controlsEnabled = true;
+          controlsEnabled = true;
   				controls.enabled = true;
   				blocker.style.display = 'none';
           crosshair.style.visibility = 'visible';
