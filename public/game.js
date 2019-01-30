@@ -1,143 +1,43 @@
-var element, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = false, rtime = 3000, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '';
-var me = {
-  name: undefined,
-  socketId: undefined,
-  uuid: undefined,
-  score: 0,
-  canFire: true,
-  ammo: 2,
-  visible: false,
-  dead: false,
-}
-var blocker = document.getElementById('blocker');
-var instructions = document.getElementById('instructions');
-var crosshair = document.getElementById('crosshair');
-var values = document.getElementsByClassName('values');
-var leaderBoard = document.getElementById('players');
-var ammoUI = document.getElementById('ammoUI');
-
-var models = {
-  map: {
-    obj: "map.obj",
-    mtl: "map.mtl",
-    mesh: null
-  },
-  player: {
-    obj: "player.obj",
-    mtl: "player.mtl",
-    mesh: null
-  },
-  laser: {
-    obj: "Laser_Rifle.obj",
-    mtl: "Laser_Rifle.mtl",
-    mesh: null
-  },
-}
-
-var havePointerLock = 'pointerLockElement' in document || 'mozPointerLockElement' in document || 'webkitPointerLockElement' in document;
-
-if ( havePointerLock ) {
-	element = document.body;
-	var pointerlockchange = function ( event ) {
-		if ( document.pointerLockElement === element || document.mozPointerLockElement === element || document.webkitPointerLockElement === element) {
-				controlsEnabled = true;
-				controls.enabled = true;
-				blocker.style.display = 'none';
-        crosshair.style.visibility = 'visible';
-        leaderBoard.style.visibility = 'visible';
-        ammoUI.style.visibility = 'visible';
-        me.visible = true;
-        showGun = true;
-        let data = {
-          from: me.socketId,
-          visible: true,
-        }
-        socket.emit('sendPlayerVisibility', data);
-		} else {
-      showGun = false;
-			controlsEnabled = false;
-      leaderBoard.style.visibility = 'hidden';
-      ammoUI.style.visibility = 'hidden';
-			blocker.style.display = '-webkit-box';
-			blocker.style.display = '-moz-box';
-			blocker.style.display = 'box';
-			instructions.style.display = '';
-      if (me.dead) {
-        let data = {
-          from: me.socketId,
-          visible: false,
-        }
-        socket.emit('sendPlayerVisibility', data);
-      }
-		}
-	};
-	var pointerlockerror = function ( event ) {
-		instructions.style.display = '';
-	};
-	document.addEventListener( 'pointerlockchange', pointerlockchange, false );
-	document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
-	document.addEventListener( 'webkitpointerlockchange', pointerlockchange, false );
-	document.addEventListener( 'pointerlockerror', pointerlockerror, false );
-	document.addEventListener( 'mozpointerlockerror', pointerlockerror, false );
-	document.addEventListener( 'webkitpointerlockerror', pointerlockerror, false );
-  document.addEventListener("click", shoot);
-	instructions.addEventListener( 'click', function ( event ) {
-		if (RESOURCES_LOADED && me.dead == false) {
-		instructions.style.display = 'none';
-		// Ask the browser to lock the pointer
-		element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
-		if ( /Firefox/i.test( navigator.userAgent ) ) {
-			var fullscreenchange = function ( event ) {
-				if ( document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element ) {
-					document.removeEventListener( 'fullscreenchange', fullscreenchange );
-					document.removeEventListener( 'mozfullscreenchange', fullscreenchange );
-					element.requestPointerLock();
-				}
-			};
-			document.addEventListener( 'fullscreenchange', fullscreenchange, false );
-			document.addEventListener( 'mozfullscreenchange', fullscreenchange, false );
-			element.requestFullscreen = element.requestFullscreen || element.mozRequestFullscreen || element.mozRequestFullScreen || element.webkitRequestFullscreen;
-			element.requestFullscreen();
-		} else {
-			element.requestPointerLock();
-		}
-                }
-	}, false );
-} else {
-	instructions.innerHTML = 'Your browser doesn\'t seem to support Pointer Lock API';
-}
-
-var controlsEnabled = false;
-var moveForward = false;
-var moveBackward = false;
-var moveLeft = false;
-var moveRight = false;
-var moveUp = false;
-var moveDown = false;
-var prevTime = performance.now();
-var velocity = new THREE.Vector3();
-angle = new THREE.Euler();
-matrix4 = new THREE.Matrix4();
-quaternion = new THREE.Quaternion();
-raycaster = new THREE.Raycaster();
-direction = new THREE.Vector3();
-var RESOURCES_LOADED = false;
-
-socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
-//socket = io.connect('localhost:3000');
-socket.on('createPlayer', function(data){checkResourcesLoaded(data)});
-socket.on('yourData', function(data){me.socketId = data.socketId; me.uuid = data.uuid; me.name = data.name});
-socket.on('removePlayer', function(data){removePlayer(data)});
-socket.on('sendHost', function(){sendHost()});
-socket.on('updatePlayer', function(data){updateOtherPlayers(data)});
-socket.on('updateKill', function(data){updateKill(data)});
-socket.on('drawLaser', function(data){drawLaser(data)});
-socket.on('setPlayerVisibility', function(data){setPlayerVisibility(data)});
+var prevTime, velocity, models, blocker, instructions, crosshair, values, leaderBoard, ammoUI, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = false, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
 
 init();
 animate();
 
 function init() {
+  me = {
+    name: undefined,
+    socketId: undefined,
+    uuid: undefined,
+    score: 0,
+    canFire: true,
+    ammo: 2,
+    visible: false,
+    dead: false,
+  }
+  blocker = document.getElementById('blocker');
+  instructions = document.getElementById('instructions');
+  crosshair = document.getElementById('crosshair');
+  values = document.getElementsByClassName('values');
+  leaderBoard = document.getElementById('players');
+  ammoUI = document.getElementById('ammoUI');
+
+  models = {
+    map: {
+      obj: "map.obj",
+      mtl: "map.mtl",
+      mesh: null
+    },
+    player: {
+      obj: "player.obj",
+      mtl: "player.mtl",
+      mesh: null
+    },
+    laser: {
+      obj: "Laser_Rifle.obj",
+      mtl: "Laser_Rifle.mtl",
+      mesh: null
+    },
+  }
 	var loadingManager = null;
 
 	camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
@@ -245,6 +145,101 @@ function init() {
 	};
 	document.addEventListener( 'keydown', keyDown, false );
 	document.addEventListener( 'keyup', keyUp, false );
+
+
+  var havePointerLock = 'pointerLockElement' in document || 'mozPointerLockElement' in document || 'webkitPointerLockElement' in document;
+
+  if ( havePointerLock ) {
+  	element = document.body;
+  	var pointerlockchange = function ( event ) {
+  		if ( document.pointerLockElement === element || document.mozPointerLockElement === element || document.webkitPointerLockElement === element) {
+  				controlsEnabled = true;
+  				controls.enabled = true;
+  				blocker.style.display = 'none';
+          crosshair.style.visibility = 'visible';
+          leaderBoard.style.visibility = 'visible';
+          ammoUI.style.visibility = 'visible';
+          me.visible = true;
+          showGun = true;
+          let data = {
+            from: me.socketId,
+            visible: true,
+          }
+          socket.emit('sendPlayerVisibility', data);
+  		} else {
+        showGun = false;
+  			controlsEnabled = false;
+        leaderBoard.style.visibility = 'hidden';
+        ammoUI.style.visibility = 'hidden';
+  			blocker.style.display = '-webkit-box';
+  			blocker.style.display = '-moz-box';
+  			blocker.style.display = 'box';
+  			instructions.style.display = '';
+        if (me.dead) {
+          let data = {
+            from: me.socketId,
+            visible: false,
+          }
+          socket.emit('sendPlayerVisibility', data);
+        }
+  		}
+  	};
+  	var pointerlockerror = function ( event ) {
+  		instructions.style.display = '';
+  	};
+  	document.addEventListener( 'pointerlockchange', pointerlockchange, false );
+  	document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
+  	document.addEventListener( 'webkitpointerlockchange', pointerlockchange, false );
+  	document.addEventListener( 'pointerlockerror', pointerlockerror, false );
+  	document.addEventListener( 'mozpointerlockerror', pointerlockerror, false );
+  	document.addEventListener( 'webkitpointerlockerror', pointerlockerror, false );
+    document.addEventListener("click", shoot);
+  	instructions.addEventListener( 'click', function ( event ) {
+  		if (RESOURCES_LOADED && me.dead == false) {
+  		instructions.style.display = 'none';
+  		// Ask the browser to lock the pointer
+  		element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
+  		if ( /Firefox/i.test( navigator.userAgent ) ) {
+  			var fullscreenchange = function ( event ) {
+  				if ( document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element ) {
+  					document.removeEventListener( 'fullscreenchange', fullscreenchange );
+  					document.removeEventListener( 'mozfullscreenchange', fullscreenchange );
+  					element.requestPointerLock();
+  				}
+  			};
+  			document.addEventListener( 'fullscreenchange', fullscreenchange, false );
+  			document.addEventListener( 'mozfullscreenchange', fullscreenchange, false );
+  			element.requestFullscreen = element.requestFullscreen || element.mozRequestFullscreen || element.mozRequestFullScreen || element.webkitRequestFullscreen;
+  			element.requestFullscreen();
+  		} else {
+  			element.requestPointerLock();
+  		}
+                  }
+  	}, false );
+  } else {
+  	instructions.innerHTML = 'Your browser doesn\'t seem to support Pointer Lock API';
+  }
+
+  prevTime = performance.now();
+  velocity = new THREE.Vector3();
+  angle = new THREE.Euler();
+  matrix4 = new THREE.Matrix4();
+  quaternion = new THREE.Quaternion();
+  raycaster = new THREE.Raycaster();
+  direction = new THREE.Vector3();
+
+  socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
+  //socket = io.connect('localhost:3000');
+  socket.on('createPlayer', function(data){checkResourcesLoaded(data)});
+  socket.on('yourData', function(data){me.socketId = data.socketId; me.uuid = data.uuid; me.name = data.name});
+  socket.on('removePlayer', function(data){removePlayer(data)});
+  socket.on('sendHost', function(){sendHost()});
+  socket.on('updatePlayer', function(data){updateOtherPlayers(data)});
+  socket.on('updateKill', function(data){updateKill(data)});
+  socket.on('drawLaser', function(data){drawLaser(data)});
+  socket.on('setPlayerVisibility', function(data){setPlayerVisibility(data)});
+
+
 	light = new THREE.DirectionalLight( 0xffffff, 0.5 );
   light.position.set(0, 50, 0);
   light.castShadow = true;
@@ -400,18 +395,18 @@ function EnemyLaser(data) {
 function shoot() {
   if (me.canFire && me.dead == false && me.visible) {
     let pos = controls.getObject().position;
-    let data = {
-      x1: pos.x,
-      x2: point.x,
-      y1: pos.y,
-      y2: point.y,
-      z1: pos.z,
-      z2: point.z,
-      from: me.socketId
-    }
-    socket.emit('sendlaser', data);
-    me.ammo--;
     if (point != undefined) {
+      me.ammo--;
+      let data = {
+        x1: pos.x,
+        x2: point.x,
+        y1: pos.y,
+        y2: point.y,
+        z1: pos.z,
+        z2: point.z,
+        from: me.socketId
+      }
+      socket.emit('sendlaser', data);
       let index = lasers.length;
       lasers.push(new Laser(pos.x, pos.y - 0.005, pos.z, point.x, point.y, point.z, true));
       lasers[index].add();
