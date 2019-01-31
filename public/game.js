@@ -1,4 +1,4 @@
-var prevTime, velocity, models, blocker, instructions, crosshair, values, leaderBoard, ammoUI, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = false, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
+var prevTime, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, ammoUI, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
 
 init();
 animate();
@@ -20,6 +20,7 @@ function init() {
   values = document.getElementsByClassName('values');
   leaderBoard = document.getElementById('players');
   ammoUI = document.getElementById('ammoUI');
+  sensitivity = document.getElementById('sensitivity');
 
   models = {
     map: {
@@ -153,21 +154,22 @@ function init() {
   	element = document.body;
   	var pointerlockchange = function ( event ) {
   		if ( document.pointerLockElement === element || document.mozPointerLockElement === element || document.webkitPointerLockElement === element) {
-          controlsEnabled = true;
-  				controls.enabled = true;
-  				blocker.style.display = 'none';
-          crosshair.style.visibility = 'visible';
-          leaderBoard.style.visibility = 'visible';
-          ammoUI.style.visibility = 'visible';
-          me.visible = true;
-          showGun = true;
-          let data = {
-            from: me.socketId,
-            visible: true,
-          }
-          socket.emit('sendPlayerVisibility', data);
+        controlsEnabled = true;
+  		  controls.enabled = true;
+  		  blocker.style.display = 'none';
+        sensitivity.style.visibility = 'hidden';
+        crosshair.style.visibility = 'visible';
+        leaderBoard.style.visibility = 'visible';
+        ammoUI.style.visibility = 'visible';
+        me.visible = true;
+        meshes["laser"].visible = true;
+        let data = {
+          from: me.socketId,
+          visible: true,
+        }
+        socket.emit('sendPlayerVisibility', data);
   		} else {
-        showGun = false;
+        crosshair.style.visibility = 'hidden';
   			controlsEnabled = false;
         leaderBoard.style.visibility = 'hidden';
         ammoUI.style.visibility = 'hidden';
@@ -175,6 +177,7 @@ function init() {
   			blocker.style.display = '-moz-box';
   			blocker.style.display = 'box';
   			instructions.style.display = '';
+        sensitivity.style.visibility = 'visible';
         if (me.dead) {
           let data = {
             from: me.socketId,
@@ -742,9 +745,16 @@ function updateKill(data) {
       me.dead = true;
       me.visible = false;
       document.getElementById("text").innerHTML = "You were killed by Player" + data.name;
-      showGun = false;
+      meshes["laser"].visible = false;
       blocker.style.background = "rgba(0,0,0,0.8)";
       crosshair.style.visibility = 'hidden';
+      controlsEnabled = false;
+      leaderBoard.style.visibility = 'hidden';
+      ammoUI.style.visibility = 'hidden';
+      blocker.style.display = '-webkit-box';
+      blocker.style.display = '-moz-box';
+      blocker.style.display = 'box';
+      instructions.style.display = '';
       setTimeout(function () {
         respawn();
       }, 2000);
@@ -836,7 +846,10 @@ function respawn() {
   spawnLocation();
 }
 
-
+function setSens(value) {
+  sens = value;
+  document.getElementById("sensValue").innerHTML = value;
+}
 /*
 var id = setInterval(function(){players[0].mesh.rotation.x += 0.05;if(players[0].mesh.rotation.x >= Math.PI/2){clearInterval(id);}}, 5)
 */

@@ -2,7 +2,7 @@
  * @author mrdoob / http://mrdoob.com/
  * @author Mugen87 / https://github.com/Mugen87
  */
-
+var sens = 1;
 THREE.PointerLockControls = function ( camera, domElement ) {
 
 	var scope = this;
@@ -28,8 +28,8 @@ THREE.PointerLockControls = function ( camera, domElement ) {
 		var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
 		var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
-		yawObject.rotation.y -= movementX * 0.002;
-		pitchObject.rotation.x -= movementY * 0.002;
+		yawObject.rotation.y -= movementX * 0.002 * sens;
+		pitchObject.rotation.x -= movementY * 0.002 * sens;
 
 		pitchObject.rotation.x = Math.max( - PI_2, Math.min( PI_2, pitchObject.rotation.x ) );
 

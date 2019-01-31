@@ -96,3 +96,60 @@ div.values {
 	text-align: right;
 	color: rgba(255, 255, 255, 0.7);
 }
+
+.input {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  background: #d3d3d3;
+  outline: none;
+}
+
+.input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #4CAF50;
+  cursor: pointer;
+}
+
+.input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #4CAF50;
+  cursor: pointer;
+}
+
+.slider {
+  float: right;
+  width: 100px;
+}
+
+
+#sensValue {
+    float: right;
+    display: inline-block;
+    position: relative;
+    width: 50px;
+    color: #fff;
+    margin-left: 5px;
+    text-align: center;
+}
+
+.sensitivity {
+  border-radius: 5px;
+  padding: 5px;
+  padding-left: 7px;
+  font-size: 18px;
+  clear: both;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 250px;
+  background: #2196F3;
+  color: #fff;
+}
