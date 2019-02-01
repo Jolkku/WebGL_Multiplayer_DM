@@ -738,23 +738,14 @@ function sendMypos() {
 function updateKill(data) {
   for (var i = 0; i < players.length; i++) {
     if (players[i].socketId == data.kill) {
-      console.log("Player" + players[i].name + ' has died');
       //players[i].mesh.visible = false;
     } else if (me.socketId == data.kill) {
-      console.log("I have died");
       me.dead = true;
       me.visible = false;
       document.getElementById("text").innerHTML = "You were killed by Player" + data.name;
       meshes["laser"].visible = false;
       blocker.style.background = "rgba(0,0,0,0.8)";
-      crosshair.style.visibility = 'hidden';
-      controlsEnabled = false;
-      leaderBoard.style.visibility = 'hidden';
-      ammoUI.style.visibility = 'hidden';
-      blocker.style.display = '-webkit-box';
-      blocker.style.display = '-moz-box';
-      blocker.style.display = 'box';
-      instructions.style.display = '';
+      document.exitPointerLock();
       setTimeout(function () {
         respawn();
       }, 2000);
@@ -827,7 +818,6 @@ function drawLaser(data) {
 }
 
 function setPlayerVisibility(data) {
-  console.log(data);
   for (var i = 0; i < players.length; i++) {
     if (players[i].socketId == data.from) {
       players[i].mesh.visible = data.visible;
@@ -850,6 +840,8 @@ function setSens(value) {
   sens = value;
   document.getElementById("sensValue").innerHTML = value;
 }
+
+
 /*
 var id = setInterval(function(){players[0].mesh.rotation.x += 0.05;if(players[0].mesh.rotation.x >= Math.PI/2){clearInterval(id);}}, 5)
 */

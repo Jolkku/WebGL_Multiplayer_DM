@@ -87,7 +87,6 @@ function newConnection(socket) {
           players.splice(i, 1);
         }
       }
-      console.log(data.name);
       io.emit('removePlayer', data);
       removeConnection();
     }
