@@ -189,6 +189,7 @@ function init() {
   	};
   	var pointerlockerror = function ( event ) {
   		instructions.style.display = '';
+      console.log("Error");
   	};
   	document.addEventListener( 'pointerlockchange', pointerlockchange, false );
   	document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
