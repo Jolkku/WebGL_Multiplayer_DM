@@ -1,4 +1,4 @@
-var prevTime, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false;
+var prevTime, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, cheats = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false;
 init();
 animate();
 function init() {
@@ -554,10 +554,10 @@ function moving(delta) {
         velocity.x += 400.0 * delta;
       };
     };
-    if ( moveUp ) {
+    if ( moveUp && cheats) {
       controls.getObject().position.y += 1
     }
-    if ( moveDown ) {
+    if ( moveDown && cheats) {
       controls.getObject().position.y -= 1;
     };
   };
@@ -818,3 +818,11 @@ function setSens(value) {
   sens = value;
   document.getElementById("sensValue").innerHTML = value;
 };
+
+function unlockCheats(password) {
+  if (password == "joelonparas") {
+    cheats = true;
+  } else {
+    console.log("Incorrect Password");
+  }
+}
