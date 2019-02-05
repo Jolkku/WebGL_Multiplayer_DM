@@ -1,0 +1,30 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# File Created: 13.03.2012 13:14:25
+
+newmtl 13894_2
+	Ns 40.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000
+	illum 2
+	Ka 1.0000 1.0000 1.0000
+	Kd 1.0000 1.0000 1.0000
+	Ks 0.3510 0.3510 0.3510
+	Ke 0.0000 0.0000 0.0000
+	map_Ka Objects/13894_Diffuse_2.jpg
+	map_Kd Objects/13894_Diffuse_2.jpg
+
+newmtl 13894_1
+	Ns 45.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000
+	illum 2
+	Ka 1.0000 1.0000 1.0000
+	Kd 1.0000 1.0000 1.0000
+	Ks 0.3780 0.3780 0.3780
+	Ke 0.0000 0.0000 0.0000
+	map_Ka Objects/13894_Diffuse_1.jpg
+	map_Kd Objects/13894_Diffuse_1.jpg
