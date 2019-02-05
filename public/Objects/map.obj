@@ -1,6 +1,6 @@
 # Blender v2.79 (sub 0) OBJ File: ''
 # www.blender.org
-mtllib map4.mtl
+mtllib map.mtl
 o BSP_Object_model_0.010
 v 12.800000 -10.899887 -154.966675
 v 12.800000 -10.899881 -158.166672
