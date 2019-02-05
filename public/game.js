@@ -1,4 +1,4 @@
-var prevTime, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, ammoUI, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
+var prevTime, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false;
 init();
 animate();
 function init() {
@@ -17,23 +17,22 @@ function init() {
   crosshair = document.getElementById('crosshair');
   values = document.getElementsByClassName('values');
   leaderBoard = document.getElementById('players');
-  ammoUI = document.getElementById('ammoUI');
   sensitivity = document.getElementById('sensitivity');
 
   models = {
     map: {
-      obj: "map.obj",
-      mtl: "map.mtl",
+      obj: "Objects/map.obj",
+      mtl: "Objects/map.mtl",
       mesh: null
     },
     player: {
-      obj: "player.obj",
-      mtl: "player.mtl",
+      obj: "Objects/player.obj",
+      mtl: "Objects/player.mtl",
       mesh: null
     },
     laser: {
-      obj: "Laser_Rifle.obj",
-      mtl: "Laser_Rifle.mtl",
+      obj: "Objects/Laser_Rifle.obj",
+      mtl: "Objects/Laser_Rifle.mtl",
       mesh: null
     }
   };
@@ -115,6 +114,9 @@ function init() {
 			case 68: // d
 				moveRight = true;
 				break;
+			case 82: //r
+				reload = true;
+				break;
 		};
 	};
 	var keyUp = function ( event ) {
@@ -137,6 +139,9 @@ function init() {
 			case 68: // d
 				moveRight = false;
 				break;
+			case 82: //r
+				reload = false;
+				break;
 		};
 	};
 	document.addEventListener( 'keydown', keyDown, false );
@@ -153,7 +158,6 @@ function init() {
         sensitivity.style.visibility = 'hidden';
         crosshair.style.visibility = 'visible';
         leaderBoard.style.visibility = 'visible';
-        ammoUI.style.visibility = 'visible';
         me.visible = true;
         meshes["laser"].visible = true;
         let data = {
@@ -165,7 +169,6 @@ function init() {
         crosshair.style.visibility = 'hidden';
   			controlsEnabled = false;
         leaderBoard.style.visibility = 'hidden';
-        ammoUI.style.visibility = 'hidden';
   			blocker.style.display = '-webkit-box';
   			blocker.style.display = '-moz-box';
   			blocker.style.display = 'box';
@@ -239,7 +242,7 @@ function animate() {
     };
   };
 	if (RESOURCES_LOADED) {
-    document.getElementById("myammo").innerHTML = me.ammo;
+    document.getElementById("ammoValue").innerHTML = me.ammo;
     updatePlayers();
     controls.getDirection( direction );
 	  var time = performance.now();
@@ -259,6 +262,10 @@ function animate() {
 	  if (showGun) {
       setGun("laser");
     };
+    if (reload && me.canFire) {
+      reloadAmmo();
+      me.canFire = false;
+    }
 	  prevTime = time;
 	};
 	renderer.render( scene, camera );
@@ -806,11 +813,8 @@ function respawn() {
   spawnLocation();
 };
 
+
 function setSens(value) {
   sens = value;
   document.getElementById("sensValue").innerHTML = value;
 };
-
-/*
-var id = setInterval(function(){players[0].mesh.rotation.x += 0.05;if(players[0].mesh.rotation.x >= Math.PI/2){clearInterval(id);}}, 5)
-*/

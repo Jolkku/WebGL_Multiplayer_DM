@@ -153,3 +153,24 @@ div.values {
   background: #2196F3;
   color: #fff;
 }
+
+#ammoDisplay {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: inline-block;
+  font-size: 40px;
+  text-align: center;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 7px;
+  padding-right: 9px;
+  padding-left: 9px;
+}
+
+#ammoValue {
+  color: #fff;
+}
+
+#ammoMax {
+  color: rgba(255, 255, 255, 0.7);
+}
