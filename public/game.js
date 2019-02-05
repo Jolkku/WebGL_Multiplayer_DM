@@ -18,6 +18,7 @@ function init() {
   values = document.getElementsByClassName('values');
   leaderBoard = document.getElementById('players');
   sensitivity = document.getElementById('sensitivity');
+  ammoUI = document.getElementById('ammoDisplay');
 
   models = {
     map: {
@@ -157,6 +158,7 @@ function init() {
   		  blocker.style.display = 'none';
         sensitivity.style.visibility = 'hidden';
         crosshair.style.visibility = 'visible';
+        ammoUI.style.visibility = 'visible';
         leaderBoard.style.visibility = 'visible';
         me.visible = true;
         meshes["laser"].visible = true;
@@ -167,13 +169,14 @@ function init() {
         socket.emit('sendPlayerVisibility', data);
   		} else {
         crosshair.style.visibility = 'hidden';
-  			controlsEnabled = false;
+        ammoUI.style.visibility = 'hidden';
         leaderBoard.style.visibility = 'hidden';
   			blocker.style.display = '-webkit-box';
   			blocker.style.display = '-moz-box';
   			blocker.style.display = 'box';
   			instructions.style.display = '';
         sensitivity.style.visibility = 'visible';
+        controlsEnabled = false;
         if (me.dead) {
           let data = {
             from: me.socketId,
