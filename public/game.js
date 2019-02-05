@@ -262,7 +262,7 @@ function animate() {
 	  if (showGun) {
       setGun("laser");
     };
-    if (reload && me.canFire) {
+    if (reload && me.canFire && me.ammo < 2) {
       reloadAmmo();
       me.canFire = false;
     }
