@@ -1,4 +1,4 @@
-var prevTime, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, cheats = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false;
+falsevar prevTime, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, cheats = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false;
 init();
 animate();
 function init() {
@@ -22,8 +22,8 @@ function init() {
 
   models = {
     map: {
-      obj: "Objects/map.obj",
-      mtl: "Objects/map.mtl",
+      obj: "Objects/map4.obj",
+      mtl: "Objects/map4.mtl",
       mesh: null
     },
     player: {
@@ -35,7 +35,7 @@ function init() {
       obj: "Objects/Laser_Rifle.obj",
       mtl: "Objects/Laser_Rifle.mtl",
       mesh: null
-    }
+    },
   };
 	var loadingManager = null;
 
@@ -214,6 +214,7 @@ function init() {
   quaternion = new THREE.Quaternion();
   raycaster = new THREE.Raycaster();
   direction = new THREE.Vector3();
+  position = new THREE.Vector3();
 
   socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
   //socket = io.connect('localhost:3000');
@@ -275,10 +276,9 @@ function animate() {
 };
 
 function onResourcesLoaded(){
-  scene.background = new THREE.Color(0x87ceff);
   meshes["map"] = models["map"].mesh.clone();
 	meshes["map"].position.set(0, 10, 11);
-  meshes["map"].scale.set(0.1, 0.1, 0.1);
+  meshes["map"].children[1].material = new THREE.MeshBasicMaterial({color: 0x87ceff});
 	scene.add(meshes["map"]);
   meshes["laser"] = models["laser"].mesh.clone();
   meshes["laser"].scale.set(0.05, 0.05, 0.05);
@@ -382,8 +382,8 @@ function EnemyLaser(data) {
 
 function shoot() {
   if (me.canFire && me.dead == false && me.visible) {
-    let pos = controls.getObject().position;
     if (point != undefined) {
+      let pos = controls.getObject().position;
       me.ammo--;
       let data = {
         x1: pos.x,
@@ -398,21 +398,21 @@ function shoot() {
       let index = lasers.length;
       lasers.push(new Laser(pos.x, pos.y - 0.005, pos.z, point.x, point.y, point.z, true));
       lasers[index].add();
-    }
-    if (intersected) {
-      let data = {
-        from: me.socketId,
-        kill: intersectedPlayer,
-        name: me.name
-      };
-      socket.emit('killPlayer', data);
-      for (var i = 0; i < players.length; i++) {
-        if (players[i].socketId = intersectedPlayer) {
-          players[i].mesh.visible = false;
-          players[i].dead = true;
+      if (intersected) {
+        let data = {
+          from: me.socketId,
+          kill: intersectedPlayer,
+          name: me.name
+        };
+        socket.emit('killPlayer', data);
+        for (var i = 0; i < players.length; i++) {
+          if (players[i].socketId = intersectedPlayer) {
+            players[i].mesh.visible = false;
+            players[i].dead = true;
+          };
         };
       };
-    };
+    }
     if (me.ammo < 1) {
       me.canFire = false;
       reloadAmmo();
@@ -423,7 +423,7 @@ function shoot() {
 function moving(delta) {
   if (me.dead == false && controlsEnabled) {
     var intersects, collide = false, dir = new THREE.Vector3();
-    position = controls.getObject().getWorldPosition(new THREE.Vector3());
+    controls.getObject().getWorldPosition(position);
     position.sub(new THREE.Vector3(0, 5.6, 0));
 
     if ( moveForward ) {
@@ -557,10 +557,10 @@ function moving(delta) {
         velocity.x += 400.0 * delta;
       };
     };
-    if ( moveUp && cheats) {
-      controls.getObject().position.y += 1
+    if ( moveUp && cheats && position.y < 52) {
+      controls.getObject().position.y += 1;
     }
-    if ( moveDown && cheats) {
+    if ( moveDown && cheats && position.y > -38) {
       controls.getObject().position.y -= 1;
     };
   };
