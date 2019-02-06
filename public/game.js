@@ -1,4 +1,4 @@
-var prevTime, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, noclip = false, startGame = false, cheats = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false;
+var prevTime, gravity = 7, jumpDelay = 200, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, startGame = false, cheats = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false, onSurface = true, canJump = true;
 init();
 animate();
 function init() {
@@ -60,12 +60,9 @@ function init() {
 			var mtlLoader = new THREE.MTLLoader(loadingManager);
 			mtlLoader.load(models[key].mtl, function(materials){
 				materials.preload();
-
 				var objLoader = new THREE.OBJLoader(loadingManager);
-
 				objLoader.setMaterials(materials);
 				objLoader.load(models[key].obj, function(mesh){
-
 					mesh.traverse(function(node){
 						if( node instanceof THREE.Mesh ){
               if (node !== undefined && key == "player") {
@@ -84,10 +81,8 @@ function init() {
 						};
 					});
 					models[key].mesh = mesh;
-
 				});
 			});
-
 		})(_key);
 	};
 
@@ -117,6 +112,16 @@ function init() {
 				break;
 			case 82: //r
 				reload = true;
+				break;
+      case 32: // space
+				if (onSurface && controlsEnabled && RESOURCES_LOADED && canJump) {
+          velocity.y += 80;
+          onSurface = false;
+          canJump = false;
+          setTimeout(function () {
+            canJump = true;
+          }, 200);
+        };
 				break;
 		};
 	};
@@ -190,6 +195,7 @@ function init() {
   		instructions.style.display = '';
       console.log("Error");
   	};
+    window.addEventListener( 'resize', onWindowResize, false );
   	document.addEventListener( 'pointerlockchange', pointerlockchange, false );
   	document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
   	document.addEventListener( 'webkitpointerlockchange', pointerlockchange, false );
@@ -235,7 +241,7 @@ function init() {
   ambient = new THREE.AmbientLight( 0xffffff, 0.5 );
   scene.add( ambient );
 };
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 function animate() {
 	requestAnimationFrame( animate );
   if (RESOURCES_LOADED == true && textChanged == false) {
@@ -247,29 +253,39 @@ function animate() {
   };
 	if (RESOURCES_LOADED) {
     document.getElementById("ammoValue").innerHTML = me.ammo;
-    updatePlayers();
     controls.getDirection( direction );
 	  var time = performance.now();
 	  var delta = ( time - prevTime) / 1000;
 	  velocity.x -= velocity.x * 10.0 * delta;
 	  velocity.z -= velocity.z * 10.0 * delta;
-	  //velocity.y -=  9.8 * 100.0 * delta; // 100.0 = mass
+	  if (cheats == false) {
+      velocity.y -=  gravity * 50.0 * delta; // 100.0 = mass
+    }
+    checkGroundCollision();
 	  moving(delta);
 	  if (controlsEnabled) {
       controls.getObject().translateX( velocity.x * delta );
-  	  controls.getObject().translateY( velocity.y * delta );
   	  controls.getObject().translateZ( velocity.z * delta );
-      checkIntersect();
     };
-    sendMypos();
-    updateLaser();
-	  if (showGun) {
-      setGun("laser");
-    };
+    controls.getObject().translateY( velocity.y * delta );
+    checkIntersect();
     if (reload && me.canFire && me.ammo < 2) {
       reloadAmmo();
       me.canFire = false;
     }
+    if (cheats) {
+      velocity.y = 0;
+    } else if ( controls.getObject().position.y < 5.76 ) {
+      velocity.y = 0;
+      controls.getObject().position.y = 5.76;
+      onSurface = true;
+    }
+    if (showGun) {
+      setGun("laser");
+    };
+    sendMypos();
+    updatePlayers();
+    updateLaser();
 	  prevTime = time;
 	};
 	renderer.render( scene, camera );
@@ -431,7 +447,7 @@ function moving(delta) {
       dir.multiplyVectors(direction, new THREE.Vector3(1, 0, 1));
       raycaster.set(position, dir);
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -440,7 +456,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -449,7 +465,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -464,7 +480,7 @@ function moving(delta) {
       dir.multiplyVectors(direction, new THREE.Vector3(-1, 0, -1));
       raycaster.set(position, dir);
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -473,7 +489,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -482,7 +498,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -497,7 +513,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.x = 0;
         collide = true;
       };
@@ -506,7 +522,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -515,7 +531,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -530,7 +546,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.x = 0;
         collide = true;
       };
@@ -539,7 +555,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -548,7 +564,7 @@ function moving(delta) {
       raycaster.set(position, dir);
 
       intersects = raycaster.intersectObject( meshes["map"], true );
-      if (intersects.length > 0 && intersects[0].distance < 2.8 && noclip == false) {
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
         velocity.z = 0;
         collide = true;
       };
@@ -822,10 +838,26 @@ function setSens(value) {
   document.getElementById("sensValue").innerHTML = value;
 };
 
-function unlockCheats(password) {
-  if (password == "joelonparas") {
-    cheats = true;
+function checkGroundCollision() {
+  controls.getObject().getWorldPosition(position);
+  var intersects, dir = new THREE.Vector3(0, -1, 0);
+  raycaster.set(position, dir);
+  intersects = raycaster.intersectObject( meshes["map"], true );
+  if (intersects.length > 0 && intersects[0].distance < 7 && cheats == false) {
+    velocity.y = Math.max( 0, velocity.y);
+    if (position.y < (0.899 + 5.76 + intersects[0].point.y)) {
+      velocity.y = 0;
+      controls.getObject().position.y = 0.899 + 5.76 + intersects[0].point.y;
+      onSurface = true;
+    }
+    onSurface = true;
   } else {
-    console.log("Incorrect Password");
-  }
+    onSurface = false;
+  };
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize( window.innerWidth, window.innerHeight );
 }
