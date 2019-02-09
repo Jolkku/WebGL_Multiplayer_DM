@@ -262,6 +262,7 @@ function animate() {
       velocity.y -=  gravity * 50.0 * delta; // 100.0 = mass
     }
     checkGroundCollision();
+    checkCollision();
 	  moving(delta);
 	  if (controlsEnabled) {
       controls.getObject().translateX( velocity.x * delta );
@@ -861,3 +862,103 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   renderer.setSize( window.innerWidth, window.innerHeight );
 }
+
+function checkCollision() {
+  if (me.dead == false && controlsEnabled) {
+    var intersects, dir = new THREE.Vector3();
+    controls.getObject().getWorldPosition(position);
+    position.sub(new THREE.Vector3(0, 5.75, 0));
+
+    if ( !moveForward ) {
+      dir.multiplyVectors(direction, new THREE.Vector3(1, 0, 1));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+
+      dir.set(-(Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, -(Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+
+      dir.set((Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, (Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+    };
+
+    if ( !moveBackward ) {
+      dir.multiplyVectors(direction, new THREE.Vector3(-1, 0, -1));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+
+      dir.set((Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, (Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+
+      dir.set(-(Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, -(Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+    };
+
+    if ( !moveLeft ) {
+      dir.set(-(Math.cos(Math.PI/2)* direction.x - Math.sin(Math.PI/2) * direction.z), 0, -(Math.sin(Math.PI/2)* direction.x + Math.cos(Math.PI/2) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.x = 0;
+      };
+
+      dir.set(-(Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, -(Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+
+      dir.set(-(Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, -(Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+    };
+
+    if ( !moveRight ) {
+      dir.set((Math.cos(Math.PI/2)* direction.x - Math.sin(Math.PI/2) * direction.z), 0, (Math.sin(Math.PI/2)* direction.x + Math.cos(Math.PI/2) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.x = 0;
+      };
+
+      dir.set((Math.cos(3 * Math.PI/4)* direction.x - Math.sin(3 * Math.PI/4) * direction.z), 0, (Math.sin(3 * Math.PI/4)* direction.x + Math.cos(3 * Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+
+      dir.set((Math.cos(Math.PI/4)* direction.x - Math.sin(Math.PI/4) * direction.z), 0, (Math.sin(Math.PI/4)* direction.x + Math.cos(Math.PI/4) * direction.z));
+      raycaster.set(position, dir);
+      intersects = raycaster.intersectObject( meshes["map"], true );
+      if (intersects.length > 0 && intersects[0].distance < 2.8 && cheats == false) {
+        velocity.z = 0;
+      };
+    };
+  };
+};
