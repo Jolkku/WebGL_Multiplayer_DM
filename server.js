@@ -4,6 +4,7 @@ function Player(socketId, uuid, name) {
   this.socketId = socketId;
   this.uuid = uuid;
   this.name = name;
+  this.cheats = false;
 }
 
 let port = process.env.PORT;
@@ -48,6 +49,45 @@ function newConnection(socket) {
   socket.on('sentHost',
     function(data) {
       socket.broadcast.emit('createPlayer', data);
+    }
+  );
+
+  socket.on('kickPlayer',
+    function(data) {
+      if (data.password == "ookee3uc") {
+        console.log("ran");
+        for (var i = 0; i < players.length; i++) {
+          if (players[i].name == data.kickPlayerName) {
+            io.to(players[i].socketId).emit('disconnectHost');
+          }
+        }
+      }
+    }
+  );
+
+  socket.on('unlockCheats',
+    function(data) {
+      for (var i = 0; i < players.length; i++) {
+        if (players[i].socketId == data.from) {
+          if (data.password == "abeskcuf") {
+            players[i].cheats = true;
+          }
+        }
+      }
+    }
+  );
+
+  socket.on('checkCheats',
+    function(data) {
+      let answer = {authority: false}
+      for (var i = 0; i < players.length; i++) {
+        if (players[i].socketId == data.from) {
+          if (players[i].cheats) {
+            answer.authority = true;
+          }
+        }
+      }
+      socket.emit('answer', answer);
     }
   );
 

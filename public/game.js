@@ -1,4 +1,4 @@
-var prevTime, gravity = 5.5, jumpDelay = 200, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, startGame = false, cheats = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false, onSurface = true, canJump = true;
+var prevTime, gravity = 4, disconnected = false, jumpHeight = 60, jumpDelay = 500, sensitivity, velocity, models, blocker, instructions, crosshair, values, leaderBoard, element, me, camera, scene, matrix4, renderer, light, ambient, sortArray, socket, id1, controls, point, position, angle, direction, raycaster, quaternion, intersected = false, showGun = true, rtime = 3000, RESOURCES_LOADED = false, startGame = false, cheats = false, textChanged = false, meshes = {}, players = [], lasers = [], intersectedPlayer = '', controlsEnabled = false, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false, reload = false, onSurface = true, canJump = true, flag = false;
 init();
 animate();
 function init() {
@@ -115,7 +115,7 @@ function init() {
 				break;
       case 32: // space
 				if (onSurface && controlsEnabled && RESOURCES_LOADED && canJump) {
-          velocity.y += 80;
+          velocity.y += jumpHeight;
           onSurface = false;
           canJump = false;
           setTimeout(function () {
@@ -204,7 +204,7 @@ function init() {
   	document.addEventListener( 'webkitpointerlockerror', pointerlockerror, false );
     document.addEventListener("click", shoot);
   	instructions.addEventListener( 'click', function ( event ) {
-  		if (RESOURCES_LOADED && me.dead == false) {
+  		if (RESOURCES_LOADED && !me.dead && !disconnected) {
         instructions.style.display = 'none';
   		  element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
   		  element.requestPointerLock();
@@ -222,8 +222,8 @@ function init() {
   direction = new THREE.Vector3();
   position = new THREE.Vector3();
 
-  socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
-  //socket = io.connect('localhost:3000');
+  //socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
+  socket = io.connect('localhost:3000');
   socket.on('createPlayer', function(data){checkResourcesLoaded(data)});
   socket.on('yourData', function(data){me.socketId = data.socketId; me.uuid = data.uuid; me.name = data.name});
   socket.on('removePlayer', function(data){removePlayer(data)});
@@ -232,6 +232,8 @@ function init() {
   socket.on('updateKill', function(data){updateKill(data)});
   socket.on('drawLaser', function(data){drawLaser(data)});
   socket.on('setPlayerVisibility', function(data){setPlayerVisibility(data)});
+  socket.on('answer', function(data){answer(data)});
+  socket.on('disconnectHost', function(data){disconnectHost(data)});
 
 	light = new THREE.DirectionalLight( 0xffffff, 0.5 );
   light.position.set(0, 50, 0);
@@ -253,6 +255,7 @@ function animate() {
   };
 	if (RESOURCES_LOADED) {
     document.getElementById("ammoValue").innerHTML = me.ammo;
+    document.getElementById("onSurface").innerHTML = onSurface;
     controls.getDirection( direction );
 	  var time = performance.now();
 	  var delta = ( time - prevTime) / 1000;
@@ -281,6 +284,7 @@ function animate() {
       controls.getObject().position.y = 5.76;
       onSurface = true;
     }
+    checkCheats();
     if (showGun) {
       setGun("laser");
     };
@@ -441,7 +445,7 @@ function moving(delta) {
   if (me.dead == false && controlsEnabled) {
     var intersects, collide = false, dir = new THREE.Vector3();
     controls.getObject().getWorldPosition(position);
-    position.sub(new THREE.Vector3(0, 5.6, 0));
+    position.sub(new THREE.Vector3(0, 5.75, 0));
 
     if ( moveForward ) {
 
@@ -643,10 +647,11 @@ function createPlayer(data) {;
   for (var i = 0; i < players.length; i++) {
     if (players[i].socketId == data.socketId) {
       checkIfExists = true;
+      setArray();
       break;
     };
   };
-  if (checkIfExists == false) {
+  if (!checkIfExists) {
     console.log("created Player");
     players.push(new Player(data.socketId, data.uuid, data.x, data.y, data.z, data.name, data.angle, data.score, data.visible, data.dead));
     setArray();
@@ -677,7 +682,7 @@ function sendHost() {
     visible: me.visible,
     dead: me.dead
   };
-  socket.emit('sentHost', data);;
+  socket.emit('sentHost', data);
 };
 
 function updateOtherPlayers(data) {
@@ -687,6 +692,7 @@ function updateOtherPlayers(data) {
       players[i].y = data.y;
       players[i].z = data.z;
       players[i].angle = data.angle;
+      players[i].mesh.visible = data.visibility;
     };
   };
 };
@@ -729,7 +735,8 @@ function sendMypos() {
     y: controls.getObject().position.y,
     z: controls.getObject().position.z,
     angle: controls.getObject().rotation.y,
-    socketId: me.socketId
+    socketId: me.socketId,
+    visibility: me.visible
   };
   socket.emit('updateHost', data);
 };
@@ -962,3 +969,52 @@ function checkCollision() {
     };
   };
 };
+
+function checkCheats() {
+  if (!disconnected && !flag) {
+    if (me.ammo > 2) {
+      flag = true
+      let data = {
+        from: me.socketId
+      }
+      socket.emit('checkCheats', data);
+    }
+    if (cheats) {
+      flag = true
+      let data = {
+        from: me.socketId
+      }
+      socket.emit('checkCheats', data);
+    }
+  }
+}
+
+function unlockCheats(password) {
+  let data = {
+    from: me.socketId,
+    password: password
+  }
+  socket.emit('unlockCheats', data);
+}
+
+function answer(data) {
+  if (data.authority == false) {
+    disconnected = true;
+    socket.disconnect();
+    document.getElementById("text").innerHTML = "You were disconnected for cheating";
+    meshes["laser"].visible = false;
+    blocker.style.background = "rgba(0,0,0,0.8)";
+    me.visible = false;
+    document.exitPointerLock();
+  }
+}
+
+function disconnectHost() {
+  disconnected = true;
+  socket.disconnect();
+  document.getElementById("text").innerHTML = "You were kicked by a admin";
+  meshes["laser"].visible = false;
+  blocker.style.background = "rgba(0,0,0,0.8)";
+  me.visible = false;
+  document.exitPointerLock();
+}
