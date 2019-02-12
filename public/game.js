@@ -222,8 +222,8 @@ function init() {
   direction = new THREE.Vector3();
   position = new THREE.Vector3();
 
-  //socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
-  socket = io.connect('localhost:3000');
+  socket = io.connect('https://limitless-shelf-74745.herokuapp.com');
+  //socket = io.connect('localhost:3000');
   socket.on('createPlayer', function(data){checkResourcesLoaded(data)});
   socket.on('yourData', function(data){me.socketId = data.socketId; me.uuid = data.uuid; me.name = data.name});
   socket.on('removePlayer', function(data){removePlayer(data)});
