@@ -255,7 +255,7 @@ function animate() {
   };
 	if (RESOURCES_LOADED) {
     document.getElementById("ammoValue").innerHTML = me.ammo;
-    document.getElementById("onSurface").innerHTML = onSurface;
+    //document.getElementById("onSurface").innerHTML = onSurface;
     controls.getDirection( direction );
 	  var time = performance.now();
 	  var delta = ( time - prevTime) / 1000;
